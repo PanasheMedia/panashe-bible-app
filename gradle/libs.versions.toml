@@ -1,6 +1,6 @@
 [versions]
-composeMultiplatform = "1.10.0"
-kotlin = "2.3.0"
+composeMultiplatform = "1.10.3"
+kotlin = "2.4.0"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
