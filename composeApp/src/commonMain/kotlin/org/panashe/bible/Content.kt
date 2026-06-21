@@ -1,8 +1,10 @@
 package org.panashe.bible
 
-import org.panashe.bible.shared.ScriptureReference
+import org.panashe.bible.features.communion.CommunionEntry
+import org.panashe.bible.features.communion.CommunionView
+import org.panashe.bible.features.communion.KeptCommunion
+import org.panashe.bible.features.reader.DailyReading
 import org.panashe.bible.shared.SharedConstants
-import org.panashe.bible.shared.SharedRules
 
 // Routes mirror panashe-bible-shared PUBLIC_ROUTES (single-sourced via SharedConstants).
 enum class PanasheRoute(val path: String, val title: String) {
@@ -12,38 +14,6 @@ enum class PanasheRoute(val path: String, val title: String) {
     About(SharedConstants.ROUTE_ABOUT, "About"),
     Privacy(SharedConstants.ROUTE_PRIVACY, "Privacy")
 }
-
-/** A Communion entry with its display reference and the resolved Scripture text. */
-data class CommunionEntry(
-    val reference: ScriptureReference,
-    val display: String,
-    val preview: String,
-    val state: String
-)
-
-/** The kept seven: one gathered passage with [SharedConstants.KEPT_BENEATH_COUNT] beneath. */
-data class KeptCommunion(
-    val date: String,
-    val gathered: CommunionEntry,
-    val beneath: List<CommunionEntry>
-)
-
-/** Today's reading derived from the seed's gathered passage. */
-data class DailyReading(
-    val dateLabel: String,
-    val reference: ScriptureReference,
-    val display: String,
-    val chapterTitle: String,
-    val chapterIntro: String,
-    val verses: List<BibleVerse>,
-    val chapterVerses: List<BibleVerse>
-)
-
-/** Everything the screens need, derived from bundled data + shared rules. */
-data class CommunionView(
-    val reading: DailyReading,
-    val kept: KeptCommunion
-)
 
 /**
  * Builds the daily reading and kept Communion from the bundled seed and shared

@@ -1,4 +1,14 @@
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
+import java.util.Properties
+import java.io.FileInputStream
+
+val xcconfig = Properties()
+val xcconfigFile = rootProject.file("iosApp/Configuration/Version.xcconfig")
+if (xcconfigFile.exists()) {
+    xcconfig.load(FileInputStream(xcconfigFile))
+}
+val appVersionName = xcconfig.getProperty("MARKETING_VERSION") ?: "1.0.0"
+val appVersionCode = xcconfig.getProperty("CURRENT_PROJECT_VERSION")?.toIntOrNull() ?: 1
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -8,9 +18,14 @@ plugins {
 }
 
 kotlin {
+    sourceSets.all {
+        languageSettings.optIn("androidx.compose.foundation.layout.ExperimentalLayoutApi")
+    }
+
     val xcf = XCFramework("PanasheBibleShared")
 
     listOf(
+        iosX64(),
         iosArm64(),
         iosSimulatorArm64()
     ).forEach { iosTarget ->

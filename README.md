@@ -5,7 +5,7 @@ Kotlin Multiplatform mobile app for Panashe Bible.
 The project follows an iOS-first version of the NuvioMobile shape:
 
 - `composeApp/` contains shared Kotlin Multiplatform and Compose Multiplatform UI.
-- `composeApp/src/commonMain/` contains shared routes, content, theme, and screens.
+- `composeApp/src/commonMain/` is organized by feature packages (`features/communion`, `features/reader`, `features/pages`) alongside shared UI components (`ui`).
 - `composeApp/src/commonMain/composeResources/files/bible/` contains the bundled Bible data exported from `panashe-bible-shared`.
 - `composeApp/src/iosMain/` contains iOS-specific Compose entry points.
 - `iosApp/` is the native iOS host.
@@ -22,10 +22,11 @@ The project follows an iOS-first version of the NuvioMobile shape:
 
 Open the repository in the Kotlin IDE, then open `iosApp` in Xcode when working on the native host.
 
-Useful checks:
+Useful commands:
 
 ```bash
-./gradlew :composeApp:compileKotlinIosSimulatorArm64
+./scripts/run-ios.sh # Compile and prepare iOS simulator build
+./gradlew :composeApp:compileKotlinIosSimulatorArm64 # Manual check
 ```
 
 ## Shared Data
