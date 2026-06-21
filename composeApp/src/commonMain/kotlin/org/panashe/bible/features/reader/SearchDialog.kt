@@ -9,28 +9,43 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import org.panashe.bible.ui.getSerifFontFamily
+import org.panashe.bible.BibleData
+import org.panashe.bible.BookSummary
+import org.panashe.bible.SearchIndexEntry
+import org.panashe.bible.ui.Ink
+import org.panashe.bible.ui.Line
+import org.panashe.bible.ui.Muted
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchDialog(
-    onDismissRequest: () -> Unit
+    bibleData: BibleData,
+    onDismissRequest: () -> Unit,
+    onNavigateToVerse: (bookSlug: String, chapter: Int) -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf("All") }
-    
-    val filters = listOf("All", "Old Testament", "New Testament", "Apocrypha")
-    
-    // Mock results
-    val results = listOf(
-        "John 1:1" to "In the beginning was the Word, and the Word was with God, and the Word was God.",
-        "John 1:2" to "The same was in the beginning with God."
-    )
+
+    val filters = listOf("All", "Old Testament", "New Testament")
+
+    val results = remember(searchQuery, selectedFilter, bibleData) {
+        if (searchQuery.isBlank()) return@remember emptyList()
+        var hits = bibleData.search(searchQuery, limit = 100)
+        if (selectedFilter != "All") {
+            val section = if (selectedFilter == "Old Testament") "Old Testament" else "New Testament"
+            hits = hits.filter { entry ->
+                bibleData.manifest.books.firstOrNull { it.slug == entry.book }?.section == section
+            }
+        }
+        hits
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
@@ -43,7 +58,7 @@ fun SearchDialog(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 24.dp)
         ) {
             Text(
-                "Search",
+                "SEARCH",
                 color = MaterialTheme.colorScheme.secondary,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -52,12 +67,13 @@ fun SearchDialog(
             Spacer(Modifier.height(4.dp))
             Text(
                 "Find verses",
+                color = Ink,
+                fontFamily = FontFamily.Serif,
                 fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                fontFamily = getSerifFontFamily()
+                fontWeight = FontWeight.Bold
             )
             Spacer(Modifier.height(24.dp))
-            
+
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
@@ -70,9 +86,9 @@ fun SearchDialog(
                 ),
                 singleLine = true
             )
-            
+
             Spacer(Modifier.height(14.dp))
-            
+
             // Filters row
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 filters.forEach { filter ->
@@ -80,7 +96,7 @@ fun SearchDialog(
                     val bgColor = if (isSelected) MaterialTheme.colorScheme.onSurface else Color.Transparent
                     val contentColor = if (isSelected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurface
                     val borderColor = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
-                    
+
                     Box(
                         modifier = Modifier
                             .border(1.dp, borderColor, RoundedCornerShape(4.dp))
@@ -92,31 +108,58 @@ fun SearchDialog(
                     }
                 }
             }
-            
+
             Spacer(Modifier.height(24.dp))
-            
+
             if (searchQuery.isNotEmpty()) {
-                LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
-                    items(results) { (reference, text) ->
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { }
-                                .padding(vertical = 16.dp)
-                        ) {
-                            Text(reference, color = MaterialTheme.colorScheme.secondary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.1.sp)
-                            Spacer(Modifier.height(4.dp))
-                            Text(text, fontFamily = getSerifFontFamily(), fontSize = 16.sp, lineHeight = 24.sp)
+                if (results.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                        Text(
+                            "No verses found for \"$searchQuery\"",
+                            color = Muted,
+                            fontSize = 14.sp
+                        )
+                    }
+                } else {
+                    LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                        items(results) { entry ->
+                            val bookName = bibleData.manifest.bookName(entry.book) ?: entry.book
+                            val reference = "$bookName ${entry.chapter}:${entry.verse}"
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        onNavigateToVerse(entry.book, entry.chapter)
+                                        onDismissRequest()
+                                    }
+                                    .padding(vertical = 16.dp)
+                            ) {
+                                Text(
+                                    reference,
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    letterSpacing = 1.1.sp
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    entry.text,
+                                    fontFamily = FontFamily.Serif,
+                                    fontSize = 16.sp,
+                                    lineHeight = 24.sp,
+                                    color = Ink
+                                )
+                            }
+                            HorizontalDivider(color = Line)
                         }
-                        Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                     }
                 }
             } else {
-                Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                    Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
-                        Text("Search the Bible", fontFamily = getSerifFontFamily(), fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Search the Bible", fontFamily = FontFamily.Serif, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.height(6.dp))
-                        Text("Type keywords to find verses.", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 14.sp)
+                        Text("Type keywords to find verses.", color = Muted, fontSize = 14.sp)
                     }
                 }
             }

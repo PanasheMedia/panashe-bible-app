@@ -38,6 +38,11 @@ import org.panashe.bible.features.communion.StaticCommunionRepository
 import org.panashe.bible.features.pages.TextPage
 import org.panashe.bible.features.reader.BibleScreen
 import org.panashe.bible.features.reader.DailyReadingScreen
+import org.panashe.bible.features.reader.MutableReaderPreferences
+import org.panashe.bible.features.reader.SearchDialog
+import org.panashe.bible.features.reader.SettingsDialog
+import org.panashe.bible.platform.AppSettings
+import org.panashe.bible.platform.PersistedReaderPrefs
 import org.panashe.bible.ui.Ink
 import org.panashe.bible.ui.Line
 import org.panashe.bible.ui.Muted
@@ -45,21 +50,69 @@ import org.panashe.bible.ui.PanasheTheme
 import org.panashe.bible.ui.Paper
 
 @Composable
-fun PanasheApp(repository: CommunionRepository = StaticCommunionRepository()) {
+fun PanasheApp(
+    repository: CommunionRepository = StaticCommunionRepository(),
+    appSettings: AppSettings? = null
+) {
     var route by remember { mutableStateOf(PanasheRoute.Daily) }
     var view by remember { mutableStateOf<CommunionView?>(null) }
+    var bibleData by remember { mutableStateOf<BibleData?>(null) }
     var loadError by remember { mutableStateOf<String?>(null) }
+    // Bible tab navigation state
+    var bibleBookSlug by remember { mutableStateOf<String?>(null) }
+    var bibleChapter by remember { mutableStateOf(1) }
+    var showSearch by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
+
+    // Load persisted state
+    val persistedState = remember { appSettings?.load() }
+    val readerPrefs = remember {
+        val prefs = persistedState?.readerPrefs
+        MutableReaderPreferences().apply {
+            if (prefs != null) {
+                fontFamily = when (prefs.fontFamily) {
+                    "sansSerif" -> FontFamily.SansSerif
+                    "monospace" -> FontFamily.Monospace
+                    else -> FontFamily.Serif
+                }
+                fontLabel = prefs.fontLabel
+                textSizePercent = prefs.textSizePercent
+                showVerseNumbers = prefs.showVerseNumbers
+                lineByLine = prefs.lineByLine
+            }
+        }
+    }
+    // Restore last position
+    val initialBook = remember { persistedState?.lastBookSlug ?: "john" }
+    val initialChapter = remember { persistedState?.lastChapter ?: 1 }
 
     LaunchedEffect(repository) {
-        runCatching { repository.todayView() }
-            .onSuccess { view = it }
-            .onFailure { loadError = it.message ?: "Unable to load bundled Bible data." }
+        runCatching {
+            val v = repository.todayView()
+            val d = repository.bibleData()
+            view = v
+            bibleData = d
+            // Use persisted position if available, otherwise default to reading's book/chapter
+            if (bibleBookSlug == null) {
+                bibleBookSlug = initialBook
+                bibleChapter = initialChapter
+            }
+        }.onFailure { loadError = it.message ?: "Unable to load bundled Bible data." }
+    }
+
+    // Persist position and prefs on changes
+    LaunchedEffect(bibleBookSlug, bibleChapter) {
+        if (bibleBookSlug != null && appSettings != null) {
+            appSettings.update {
+                copy(lastBookSlug = bibleBookSlug ?: "john", lastChapter = bibleChapter)
+            }
+        }
     }
 
     PanasheTheme {
         Surface(modifier = Modifier.fillMaxSize(), color = Paper) {
             Column(modifier = Modifier.fillMaxSize()) {
-                Header(route = route, onRouteChange = { route = it })
+                Header(route = route, onRouteChange = { route = it }, onSearch = { showSearch = true }, onSettings = { showSettings = true })
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -77,8 +130,20 @@ fun PanasheApp(repository: CommunionRepository = StaticCommunionRepository()) {
                                 loadError = loadError,
                                 onBible = { route = PanasheRoute.Bible }
                             )
-                            PanasheRoute.Bible -> BibleScreen(view = view, loadError = loadError)
-                            PanasheRoute.Communion -> CommunionScreen(view = view)
+                            PanasheRoute.Bible -> BibleScreen(
+                                view = view,
+                                loadError = loadError,
+                                bibleData = bibleData,
+                                bookSlug = bibleBookSlug ?: view?.reading?.reference?.book ?: "john",
+                                chapter = bibleChapter,
+                                onBookChange = { slug -> bibleBookSlug = slug; bibleChapter = 1 },
+                                onChapterChange = { ch -> bibleChapter = ch },
+                                prefs = readerPrefs
+                            )
+                            PanasheRoute.Communion -> CommunionScreen(
+                                view = view,
+                                bibleData = bibleData
+                            )
                             PanasheRoute.About -> TextPage("About", aboutParagraphs)
                             PanasheRoute.Privacy -> TextPage("Privacy Policy", privacyParagraphs)
                         }
@@ -87,12 +152,50 @@ fun PanasheApp(repository: CommunionRepository = StaticCommunionRepository()) {
                 }
                 BottomTabs(route = route, onRouteChange = { route = it })
             }
+
+            if (showSearch && bibleData != null) {
+                SearchDialog(
+                    bibleData = bibleData!!,
+                    onDismissRequest = { showSearch = false },
+                    onNavigateToVerse = { slug, ch ->
+                        bibleBookSlug = slug
+                        bibleChapter = ch
+                        route = PanasheRoute.Bible
+                    }
+                )
+            }
+
+            if (showSettings) {
+                SettingsDialog(
+                    prefs = readerPrefs,
+                    onDismissRequest = {
+                        showSettings = false
+                        // Persist reader preferences on close
+                        if (appSettings != null) {
+                            val snapshot = readerPrefs.snapshot()
+                            appSettings.update {
+                                copy(readerPrefs = PersistedReaderPrefs(
+                                    fontFamily = when (snapshot.fontFamily) {
+                                        FontFamily.SansSerif -> "sansSerif"
+                                        FontFamily.Monospace -> "monospace"
+                                        else -> "serif"
+                                    },
+                                    fontLabel = snapshot.fontLabel,
+                                    textSizePercent = snapshot.textSizePercent,
+                                    showVerseNumbers = snapshot.showVerseNumbers,
+                                    lineByLine = snapshot.lineByLine
+                                ))
+                            }
+                        }
+                    }
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun Header(route: PanasheRoute, onRouteChange: (PanasheRoute) -> Unit) {
+private fun Header(route: PanasheRoute, onRouteChange: (PanasheRoute) -> Unit, onSearch: () -> Unit = {}, onSettings: () -> Unit = {}) {
     BoxWithConstraints(modifier = Modifier.fillMaxWidth().background(Paper).border(BorderStroke(0.5.dp, Line))) {
         val showPrimaryTabs = maxWidth > 700.dp
         Row(
@@ -115,8 +218,8 @@ private fun Header(route: PanasheRoute, onRouteChange: (PanasheRoute) -> Unit) {
                 }
             } else {
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    HeaderAction("Aa")
-                    HeaderAction("Search")
+                    HeaderAction("Aa", onClick = onSettings)
+                    HeaderAction("Search", onClick = onSearch)
                 }
             }
         }
@@ -131,8 +234,8 @@ private fun PrimaryTab(label: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun HeaderAction(label: String) {
-    TextButton(onClick = {}, shape = RoundedCornerShape(50)) {
+private fun HeaderAction(label: String, onClick: () -> Unit = {}) {
+    TextButton(onClick = onClick, shape = RoundedCornerShape(50)) {
         Text(label, color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Medium)
     }
 }

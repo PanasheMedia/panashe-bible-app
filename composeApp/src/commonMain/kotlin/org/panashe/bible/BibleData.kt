@@ -77,6 +77,7 @@ data class BibleVerse(
 class BibleData(
     val manifest: BibleManifest,
     val seed: CommunionSeed,
+    val searchIndex: List<SearchIndexEntry>,
     private val bookLoader: suspend (String) -> BibleBook
 ) {
     private val cache = mutableMapOf<String, BibleBook>()
@@ -98,7 +99,21 @@ class BibleData(
 
     fun displayReference(reference: ScriptureReference): String =
         SharedRules.formatReference(reference, manifest.bookName(reference.book))
+
+    fun search(query: String, limit: Int = 50): List<SearchIndexEntry> {
+        if (query.isBlank()) return emptyList()
+        val lower = query.lowercase()
+        return searchIndex.filter { it.text.lowercase().contains(lower) }.take(limit)
+    }
 }
+
+@Serializable
+data class SearchIndexEntry(
+    @SerialName("b") val book: String,
+    @SerialName("c") val chapter: Int,
+    @SerialName("v") val verse: Int,
+    @SerialName("t") val text: String
+)
 
 private val json = Json {
     ignoreUnknownKeys = true
@@ -109,13 +124,16 @@ private val json = Json {
 suspend fun loadBundledBibleData(): BibleData {
     val manifestJson = Res.readBytes("files/bible/manifest.json").decodeToString()
     val seedJson = Res.readBytes("files/bible/communion-seed.json").decodeToString()
+    val searchIndexJson = Res.readBytes("files/bible/search-index.json").decodeToString()
 
     val manifest = json.decodeFromString<BibleManifest>(manifestJson)
     val seed = parseCommunionSeed(seedJson)
+    val searchIndex = json.decodeFromString<List<SearchIndexEntry>>(searchIndexJson)
 
     return BibleData(
         manifest = manifest,
         seed = seed,
+        searchIndex = searchIndex,
         bookLoader = { slug ->
             val bookJson = Res.readBytes("files/bible/books/$slug.json").decodeToString()
             json.decodeFromString<BibleBook>(bookJson)

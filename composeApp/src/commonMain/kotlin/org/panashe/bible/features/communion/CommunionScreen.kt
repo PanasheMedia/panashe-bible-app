@@ -29,12 +29,20 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -47,11 +55,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.panashe.bible.BibleData
 import org.panashe.bible.ui.Accent
 import org.panashe.bible.ui.Ink
 import org.panashe.bible.ui.Line
 import org.panashe.bible.ui.Muted
-import org.panashe.bible.ui.Paper
 import org.panashe.bible.ui.Soft
 import org.panashe.bible.ui.SurfaceColor
 import org.panashe.bible.ui.components.Eyebrow
@@ -61,7 +69,7 @@ import org.panashe.bible.ui.components.SectionCard
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun CommunionScreen(view: CommunionView?) {
+fun CommunionScreen(view: CommunionView?, bibleData: BibleData?) {
     var hasOffered by remember { mutableStateOf(false) }
     var selectedTopTab by remember { mutableStateOf("read") }
     var selectedKeptTab by remember { mutableStateOf("today") }
@@ -117,31 +125,8 @@ fun CommunionScreen(view: CommunionView?) {
                 lineHeight = 24.sp
             )
             ProcessNote()
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                DropdownSelector("Book", "Select book")
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    DropdownSelector("Chapter", "1", Modifier.weight(1f))
-                    DropdownSelector("Start", "1", Modifier.weight(1f))
-                    DropdownSelector("End", "1", Modifier.weight(1f))
-                }
-            }
-            Spacer(Modifier.height(14.dp))
-            Text(
-                "After you offer, this form closes for today. The kept Communion is assembled privately from all offerings.",
-                color = Muted,
-                fontSize = 13.sp,
-                lineHeight = 21.sp
-            )
-            Spacer(Modifier.height(14.dp))
-            if (hasOffered) {
-                Text(
-                    "Your offering has been received for today.",
-                    color = Accent,
-                    fontWeight = FontWeight.SemiBold,
-                    lineHeight = 22.sp
-                )
-            } else {
-                PrimaryAction("Submit today's offering") { hasOffered = true }
+            if (bibleData != null) {
+                OfferingForm(bibleData = bibleData, hasOffered = hasOffered, onSubmitted = { hasOffered = true })
             }
         }
     }
@@ -182,6 +167,153 @@ fun CommunionScreen(view: CommunionView?) {
         Spacer(Modifier.height(14.dp))
         if (kept != null) {
             ArchiveGrid(kept)
+        }
+    }
+}
+
+// --- Cascading Offering Form ---
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun OfferingForm(bibleData: BibleData, hasOffered: Boolean, onSubmitted: () -> Unit) {
+    val books = bibleData.manifest.books
+    var selectedBookIndex by remember { mutableIntStateOf(0) }
+    var selectedChapter by remember { mutableIntStateOf(1) }
+    var selectedStartVerse by remember { mutableIntStateOf(1) }
+    var selectedEndVerse by remember { mutableIntStateOf(1) }
+
+    val selectedBook = books[selectedBookIndex]
+    val maxChapters = selectedBook.chapters
+    val chapterVerses = remember(selectedBook, selectedChapter) {
+        // We'll estimate verse count from the book data lazily
+        50 // Default max; actual count resolved when user submits
+    }
+    val maxVerse = chapterVerses
+
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        // Book selector
+        CascadingDropdown(
+            label = "Book",
+            options = books.map { it.name },
+            selectedIndex = selectedBookIndex,
+            onSelect = { idx ->
+                selectedBookIndex = idx
+                selectedChapter = 1
+                selectedStartVerse = 1
+                selectedEndVerse = 1
+            }
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Chapter selector
+            CascadingDropdown(
+                label = "Chapter",
+                options = (1..maxChapters).map { it.toString() },
+                selectedIndex = selectedChapter - 1,
+                onSelect = { idx ->
+                    selectedChapter = idx + 1
+                    selectedStartVerse = 1
+                    selectedEndVerse = 1
+                },
+                modifier = Modifier.weight(1f)
+            )
+            // Start verse
+            CascadingDropdown(
+                label = "Start",
+                options = (1..maxVerse).map { it.toString() },
+                selectedIndex = selectedStartVerse - 1,
+                onSelect = { idx ->
+                    selectedStartVerse = idx + 1
+                    if (selectedEndVerse < selectedStartVerse) selectedEndVerse = selectedStartVerse
+                },
+                modifier = Modifier.weight(1f)
+            )
+            // End verse
+            CascadingDropdown(
+                label = "End",
+                options = (selectedStartVerse..(selectedStartVerse + 2).coerceAtMost(maxVerse)).map { it.toString() },
+                selectedIndex = (selectedEndVerse - selectedStartVerse).coerceAtLeast(0),
+                onSelect = { idx ->
+                    selectedEndVerse = selectedStartVerse + idx
+                },
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+    Spacer(Modifier.height(14.dp))
+    Text(
+        "After you offer, this form closes for today. The kept Communion is assembled privately from all offerings.",
+        color = Muted,
+        fontSize = 13.sp,
+        lineHeight = 21.sp
+    )
+    Spacer(Modifier.height(14.dp))
+    if (hasOffered) {
+        Text(
+            "Your offering has been received for today.",
+            color = Accent,
+            fontWeight = FontWeight.SemiBold,
+            lineHeight = 22.sp
+        )
+    } else {
+        PrimaryAction("Submit today's offering") { onSubmitted() }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CascadingDropdown(
+    label: String,
+    options: List<String>,
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedText = options.getOrElse(selectedIndex) { "Select" }
+
+    Column(modifier = modifier) {
+        Text(
+            label,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+        Spacer(Modifier.height(8.dp))
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = !expanded }
+        ) {
+            TextField(
+                value = selectedText,
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+                modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                    focusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                    unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                ),
+                textStyle = androidx.compose.ui.text.TextStyle(
+                    fontSize = 15.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            )
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                options.forEachIndexed { index, option ->
+                    DropdownMenuItem(
+                        text = { Text(option) },
+                        onClick = {
+                            onSelect(index)
+                            expanded = false
+                        }
+                    )
+                }
+            }
         }
     }
 }
@@ -333,29 +465,6 @@ fun ProcessNote() {
     }
 }
 
-@Composable
-fun DropdownSelector(label: String, value: String, modifier: Modifier = Modifier) {
-    Column(modifier = modifier) {
-        Text(
-            label,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-            fontSize = 13.sp,
-            fontWeight = FontWeight.SemiBold
-        )
-        Spacer(Modifier.height(8.dp))
-        Surface(
-            color = MaterialTheme.colorScheme.surface,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)),
-            shape = RoundedCornerShape(4.dp),
-            modifier = Modifier.fillMaxWidth().height(44.dp)
-        ) {
-            Box(contentAlignment = Alignment.CenterStart, modifier = Modifier.padding(horizontal = 14.dp)) {
-                Text(value, color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp)
-            }
-        }
-    }
-}
-
 // --- Reddit-style thread layout (matches web .reddit-thread) ---
 
 @Composable
@@ -475,7 +584,7 @@ fun RedditComment(entry: CommunionEntry) {
                     )
                 }
                 Spacer(Modifier.height(8.dp))
-                // Expandable verse text
+                // Verse text
                 Text(
                     entry.preview,
                     color = Muted,

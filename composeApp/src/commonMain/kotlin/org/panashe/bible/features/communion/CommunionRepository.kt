@@ -16,6 +16,8 @@ import org.panashe.bible.loadBundledBibleData
 interface CommunionRepository {
     /** The Communion view for today (reading + kept Communion). */
     suspend fun todayView(): CommunionView
+    /** The loaded Bible data corpus (manifest, seed, book loader). */
+    suspend fun bibleData(): BibleData
 }
 
 /**
@@ -27,8 +29,14 @@ class StaticCommunionRepository(
 ) : CommunionRepository {
     private var cached: BibleData? = null
 
+    private suspend fun ensureLoaded(): BibleData {
+        return cached ?: dataProvider().also { cached = it }
+    }
+
     override suspend fun todayView(): CommunionView {
-        val data = cached ?: dataProvider().also { cached = it }
+        val data = ensureLoaded()
         return buildCommunionView(data)
     }
+
+    override suspend fun bibleData(): BibleData = ensureLoaded()
 }

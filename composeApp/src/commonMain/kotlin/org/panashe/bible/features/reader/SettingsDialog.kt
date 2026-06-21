@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -19,8 +20,11 @@ import org.panashe.bible.ui.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsDialog(
+    prefs: MutableReaderPreferences,
     onDismissRequest: () -> Unit
 ) {
+    val snapshot = prefs.snapshot()
+
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         containerColor = MaterialTheme.colorScheme.surface,
@@ -41,78 +45,86 @@ fun SettingsDialog(
             Spacer(Modifier.height(4.dp))
             Text(
                 "Reading settings",
+                color = Ink,
+                fontFamily = FontFamily.Serif,
                 fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                fontFamily = getSerifFontFamily()
+                fontWeight = FontWeight.Bold
             )
             Spacer(Modifier.height(24.dp))
-            
+
             // Verse Numbers Toggle
             SettingToggleRow(
                 title = "Verse numbers",
                 description = "Show verse references alongside Scripture.",
-                checked = true,
-                onCheckedChange = {}
+                checked = snapshot.showVerseNumbers,
+                onCheckedChange = { prefs.toggleVerseNumbers() }
             )
-            
-            Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-            
+
+            HorizontalDivider(color = Line)
+
             // Line by line Toggle
             SettingToggleRow(
                 title = "Line by line",
                 description = "Place each verse on a separate line for slower reading.",
-                checked = false,
-                onCheckedChange = {}
+                checked = snapshot.lineByLine,
+                onCheckedChange = { prefs.toggleLineByLine() }
             )
 
-            Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-            
+            HorizontalDivider(color = Line)
+
             // Text Size
             SettingRowHeader("Text size", "Adjust the size of Scripture text.")
             Spacer(modifier = Modifier.height(8.dp))
             Row(
-                modifier = Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f), RoundedCornerShape(4.dp)).height(62.dp),
+                modifier = Modifier.fillMaxWidth()
+                    .border(1.dp, Line, RoundedCornerShape(4.dp))
+                    .height(62.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(modifier = Modifier.weight(1f).fillMaxHeight().background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)).clickable { }, contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxHeight()
+                        .background(Soft).clickable { prefs.decreaseTextSize() },
+                    contentAlignment = Alignment.Center
+                ) {
                     Text("-", fontSize = 24.sp)
                 }
-                Box(modifier = Modifier.weight(2f).fillMaxHeight().border(BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))), contentAlignment = Alignment.Center) {
-                    Text("100%", fontWeight = FontWeight.Bold, fontFamily = getSansFontFamily())
+                Box(
+                    modifier = Modifier.weight(2f).fillMaxHeight()
+                        .border(BorderStroke(1.dp, Line)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "${snapshot.textSizePercent.toInt()}%",
+                        fontWeight = FontWeight.Bold,
+                        color = Ink
+                    )
                 }
-                Box(modifier = Modifier.weight(1f).fillMaxHeight().background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)).clickable { }, contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxHeight()
+                        .background(Soft).clickable { prefs.increaseTextSize() },
+                    contentAlignment = Alignment.Center
+                ) {
                     Text("+", fontSize = 24.sp)
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Audio settings mock
-            SettingRowHeader("Audio Voice", "Choose narrator.")
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedButton(onClick = {}, modifier = Modifier.fillMaxWidth()) {
-                Text("Default Voice")
-            }
+            HorizontalDivider(color = Line)
             Spacer(modifier = Modifier.height(16.dp))
-            SettingRowHeader("Audio Speed", "Adjust pace.")
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SpeedButton(".8x", false)
-                SpeedButton("1x", true)
-                SpeedButton("1.2x", false)
-            }
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-            Spacer(modifier = Modifier.height(16.dp))
-            
+
             SettingRowHeader("Reading font", "Choose the typeface used for Scripture.")
             Spacer(modifier = Modifier.height(12.dp))
-            
+
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                FontOption("Source Serif", "Balanced", true)
-                FontOption("Lexend", "Dyslexia-Friendly", false)
-                FontOption("Libre Baskerville", "Traditional", false)
-                FontOption("Atkinson Hyperlegible", "Accessible", false)
+                FontOption("Source Serif", "Balanced", snapshot.fontLabel == "Source Serif") {
+                    prefs.setFont("Source Serif", FontFamily.Serif)
+                }
+                FontOption("DM Sans", "Clean", snapshot.fontLabel == "DM Sans") {
+                    prefs.setFont("DM Sans", FontFamily.SansSerif)
+                }
+                FontOption("Mono", "Technical", snapshot.fontLabel == "Mono") {
+                    prefs.setFont("Mono", FontFamily.Monospace)
+                }
             }
         }
     }
@@ -126,9 +138,9 @@ fun SettingToggleRow(title: String, description: String, checked: Boolean, onChe
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
-            Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Text(title, color = Ink, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             Spacer(Modifier.height(2.dp))
-            Text(description, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 12.sp, lineHeight = 16.sp)
+            Text(description, color = Muted, fontSize = 12.sp, lineHeight = 16.sp)
         }
         Switch(
             checked = checked,
@@ -146,56 +158,43 @@ fun SettingToggleRow(title: String, description: String, checked: Boolean, onChe
 @Composable
 fun SettingRowHeader(title: String, description: String) {
     Column(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
-        Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+        Text(title, color = Ink, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
         Spacer(Modifier.height(2.dp))
-        Text(description, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 12.sp, lineHeight = 16.sp)
+        Text(description, color = Muted, fontSize = 12.sp, lineHeight = 16.sp)
     }
 }
 
 @Composable
-fun SpeedButton(label: String, selected: Boolean) {
-    val borderColor = if (selected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
-    val bgColor = if (selected) MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f) else Color.Transparent
-    
-    Box(
-        modifier = Modifier
-            .border(1.dp, borderColor, RoundedCornerShape(4.dp))
-            .background(bgColor, RoundedCornerShape(4.dp))
-            .clickable { }
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(label, fontSize = 14.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
-    }
-}
+fun FontOption(name: String, description: String, selected: Boolean, onClick: () -> Unit) {
+    val borderColor = if (selected) Ink else Line
+    val bgColor = if (selected) Soft else Color.Transparent
 
-@Composable
-fun FontOption(name: String, description: String, selected: Boolean) {
-    val borderColor = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
-    val bgColor = if (selected) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f) else Color.Transparent
-    
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .border(1.dp, borderColor, RoundedCornerShape(4.dp))
             .background(bgColor, RoundedCornerShape(4.dp))
-            .clickable { }
+            .clickable { onClick() }
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text("Ag", fontSize = 24.sp, modifier = Modifier.width(48.dp))
+        Text(
+            "Ag",
+            fontSize = 24.sp,
+            modifier = Modifier.width(48.dp),
+            color = Ink
+        )
         Column(modifier = Modifier.weight(1f)) {
-            Text(name, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            Text(description, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 11.sp)
+            Text(name, color = Ink, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text(description, color = Muted, fontSize = 11.sp)
         }
-        
-        // Radio circle mock
+
         Box(
             modifier = Modifier
                 .size(16.dp)
                 .border(
                     if (selected) 4.dp else 1.dp,
-                    if (selected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                    if (selected) Accent else Muted,
                     RoundedCornerShape(8.dp)
                 )
         )
