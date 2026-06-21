@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="background" x1="512" y1="0" x2="512" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#b4162b"/>
+      <stop offset="1" stop-color="#520817"/>
+    </linearGradient>
+    <radialGradient id="highlight" cx="50%" cy="28%" r="72%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.09"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="pageFace" x1="512" y1="272" x2="512" y2="690" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#eef3fa"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="18" stdDeviation="16" flood-color="#21030a" flood-opacity="0.34"/>
+    </filter>
+  </defs>
+
+  <rect width="1024" height="1024" fill="url(#background)"/>
+  <rect width="1024" height="1024" fill="url(#highlight)"/>
+
+  <g filter="url(#softShadow)">
+    <path d="M506 274L372 178L344 194L506 318Z" fill="#ffffff" opacity="0.98"/>
+    <path d="M506 274L318 218L306 244L506 324Z" fill="#ffffff" opacity="0.95"/>
+    <path d="M506 274L286 270L282 298L506 334Z" fill="#ffffff" opacity="0.92"/>
+    <path d="M518 274L652 178L680 194L518 318Z" fill="#ffffff" opacity="0.98"/>
+    <path d="M518 274L706 218L718 244L518 324Z" fill="#ffffff" opacity="0.95"/>
+    <path d="M518 274L738 270L742 298L518 334Z" fill="#ffffff" opacity="0.92"/>
+    <path d="M288 312L506 362V690L288 634Z" fill="url(#pageFace)"/>
+    <path d="M736 312L518 362V690L736 634Z" fill="url(#pageFace)"/>
+    <path d="M500 352H524V694H500Z" fill="#5b0816"/>
+    <path d="M360 426H664V504H360Z" fill="#8d1322"/>
+  </g>
+</svg>
