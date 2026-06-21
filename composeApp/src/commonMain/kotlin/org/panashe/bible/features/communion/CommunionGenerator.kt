@@ -66,6 +66,7 @@ class CommunionGenerator(
 
     companion object {
         /** Today's date at UTC midnight as yyyy-MM-dd, mirroring web's todayISO(). */
+        @OptIn(ExperimentalTime::class)
         fun todayIso(): String = Clock.System.todayIn(TimeZone.UTC).toString()
     }
 }
