@@ -1,6 +1,7 @@
 package org.panashe.bible.features.communion
 
-import kotlinx.datetime.Clock
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.todayIn
@@ -28,7 +29,7 @@ class CommunionGenerator(
 
     /** Days from the seed start to [iso] (0 == start date). */
     fun dayIndexForIso(iso: String): Int =
-        LocalDate.parse(iso).toEpochDays() - startEpochDay
+        (LocalDate.parse(iso).toEpochDays() - startEpochDay).toInt()
 
     /** ISO date (yyyy-MM-dd) for a day [index] offset from the seed start. */
     fun isoForIndex(index: Int): String =
