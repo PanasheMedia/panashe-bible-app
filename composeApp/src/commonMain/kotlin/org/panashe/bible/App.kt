@@ -43,6 +43,7 @@ import org.panashe.bible.features.reader.SearchDialog
 import org.panashe.bible.features.reader.SettingsDialog
 import org.panashe.bible.platform.AppSettings
 import org.panashe.bible.platform.PersistedReaderPrefs
+import org.panashe.bible.shared.SharedConstants
 import org.panashe.bible.ui.Ink
 import org.panashe.bible.ui.Line
 import org.panashe.bible.ui.Muted
@@ -142,7 +143,8 @@ fun PanasheApp(
                             )
                             PanasheRoute.Communion -> CommunionScreen(
                                 view = view,
-                                bibleData = bibleData
+                                bibleData = bibleData,
+                                appSettings = appSettings
                             )
                             PanasheRoute.About -> TextPage("About", aboutParagraphs)
                             PanasheRoute.Privacy -> TextPage("Privacy Policy", privacyParagraphs)
@@ -157,7 +159,7 @@ fun PanasheApp(
                 SearchDialog(
                     bibleData = bibleData!!,
                     onDismissRequest = { showSearch = false },
-                    onNavigateToVerse = { slug, ch ->
+                    onNavigateToVerse = { slug, ch, _ ->
                         bibleBookSlug = slug
                         bibleChapter = ch
                         route = PanasheRoute.Bible

@@ -9,6 +9,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -27,12 +28,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -41,6 +46,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -56,6 +62,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.panashe.bible.BibleData
+import org.panashe.bible.CommunionSeed
+import org.panashe.bible.formatDate
+import org.panashe.bible.shared.SharedConstants
 import org.panashe.bible.ui.Accent
 import org.panashe.bible.ui.Ink
 import org.panashe.bible.ui.Line
@@ -66,16 +75,68 @@ import org.panashe.bible.ui.components.Eyebrow
 import org.panashe.bible.ui.components.LoadingText
 import org.panashe.bible.ui.components.PrimaryAction
 import org.panashe.bible.ui.components.SectionCard
+import org.panashe.bible.platform.AppSettings
+import kotlinx.coroutines.runBlocking
+import kotlinx.datetime.Clock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun CommunionScreen(view: CommunionView?, bibleData: BibleData?) {
-    var hasOffered by remember { mutableStateOf(false) }
+fun CommunionScreen(view: CommunionView?, bibleData: BibleData?, appSettings: AppSettings? = null) {
+    // Check if user already offered today
+    val persistedState = remember { appSettings?.load() }
+    val todayIso = remember {
+        val localDate = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+        "${localDate.year}-${localDate.monthNumber.toString().padStart(2, '0')}-${localDate.dayOfMonth.toString().padStart(2, '0')}"
+    }
+    var hasOffered by remember { mutableStateOf(persistedState?.offeredTodayIso == todayIso) }
     var selectedTopTab by remember { mutableStateOf("read") }
     var selectedKeptTab by remember { mutableStateOf("today") }
+    var showArchiveDialog by remember { mutableStateOf(false) }
+    var selectedArchiveIso by remember { mutableStateOf<String?>(null) }
+    var showOfferToast by remember { mutableStateOf(false) }
 
     val reading = view?.reading
     val kept = view?.kept
+
+    // Generate archive entries (last 7 days)
+    val archiveEntries = remember(bibleData) {
+        if (bibleData == null) return@remember emptyList()
+        val gen = CommunionGenerator(bibleData.manifest, bibleData.seed)
+        val today = CommunionGenerator.todayIso()
+        (1..7).mapNotNull { daysAgo ->
+            val iso = gen.isoForDate(today, -daysAgo) ?: return@mapNotNull null
+            val day = gen.communionForDate(iso)
+            val bookName = bibleData.manifest.bookName(day.gathered.book) ?: day.gathered.book
+            ArchiveDay(
+                iso = iso,
+                dateLabel = formatDate(iso),
+                reference = "$bookName ${day.gathered.chapter}:${day.gathered.startVerse}-${day.gathered.endVerse}",
+                offerings = day.offerings
+            )
+        }
+    }
+
+    // Load archive detail
+    val archiveDetail = remember(selectedArchiveIso, bibleData) {
+        if (selectedArchiveIso == null || bibleData == null) return@remember null
+        val gen = CommunionGenerator(bibleData.manifest, bibleData.seed)
+        val day = gen.communionForDate(selectedArchiveIso!!)
+        val bookName = bibleData.manifest.bookName(day.gathered.book) ?: day.gathered.book
+        val gatheredText = runBlocking { bibleData.passageText(day.gathered) }
+        val offeringDetails = day.offerings.map { ref ->
+            val name = bibleData.manifest.bookName(ref.book) ?: ref.book
+            val text = runBlocking { bibleData.passageText(ref) }
+            ArchiveDetailEntry("$name ${ref.chapter}:${ref.startVerse}-${ref.endVerse}", text)
+        }
+        ArchiveDetail(
+            dateLabel = formatDate(selectedArchiveIso!!),
+            gatheredRef = "$bookName ${day.gathered.chapter}:${day.gathered.startVerse}-${day.gathered.endVerse}",
+            gatheredText = gatheredText,
+            offerings = offeringDetails
+        )
+    }
 
     CommunionHero()
 
@@ -126,7 +187,11 @@ fun CommunionScreen(view: CommunionView?, bibleData: BibleData?) {
             )
             ProcessNote()
             if (bibleData != null) {
-                OfferingForm(bibleData = bibleData, hasOffered = hasOffered, onSubmitted = { hasOffered = true })
+                OfferingForm(bibleData = bibleData, hasOffered = hasOffered, onSubmitted = {
+                    hasOffered = true
+                    showOfferToast = true
+                    appSettings?.update { copy(offeredTodayIso = todayIso) }
+                })
             }
         }
     }
@@ -165,10 +230,143 @@ fun CommunionScreen(view: CommunionView?, bibleData: BibleData?) {
             lineHeight = 24.sp
         )
         Spacer(Modifier.height(14.dp))
-        if (kept != null) {
+        if (archiveEntries.isNotEmpty()) {
+            // Today's entry
+            if (kept != null) {
+                ArchiveItem(
+                    date = kept.date,
+                    reference = kept.gathered.display,
+                    count = kept.beneath.size,
+                    isToday = true,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                )
+            }
+            // Previous days
+            archiveEntries.forEach { entry ->
+                ArchiveItem(
+                    date = entry.dateLabel,
+                    reference = entry.reference,
+                    count = entry.offerings.size,
+                    isToday = false,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                        .clickable {
+                            selectedArchiveIso = entry.iso
+                            showArchiveDialog = true
+                        }
+                )
+            }
+        } else if (kept != null) {
             ArchiveGrid(kept)
         }
     }
+
+    // Archive detail dialog
+    if (showArchiveDialog && archiveDetail != null) {
+        ArchiveDetailDialog(
+            detail = archiveDetail!!,
+            onDismiss = { showArchiveDialog = false }
+        )
+    }
+
+    // Offering submission toast
+    if (showOfferToast) {
+        LaunchedEffect(Unit) {
+            kotlinx.coroutines.delay(3000)
+            showOfferToast = false
+        }
+        Surface(
+            color = Accent,
+            shape = RoundedCornerShape(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 8.dp)
+        ) {
+            Text(
+                "Your offering has been received for today.",
+                color = SurfaceColor,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+            )
+        }
+    }
+}
+
+// --- Archive Detail Dialog ---
+
+@Composable
+fun ArchiveDetailDialog(detail: ArchiveDetail, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Column {
+                Text(
+                    detail.dateLabel,
+                    color = Muted,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 0.8.sp
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    detail.gatheredRef,
+                    color = Ink,
+                    fontFamily = FontFamily.Serif,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        },
+        text = {
+            LazyColumn {
+                // Gathered passage
+                item {
+                    Text(
+                        detail.gatheredText,
+                        color = Ink,
+                        fontFamily = FontFamily.Serif,
+                        fontSize = 16.sp,
+                        lineHeight = 26.sp
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    HorizontalDivider(color = Line)
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        "${detail.offerings.size} KEPT BENEATH",
+                        color = Muted,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 0.8.sp
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
+                // Offerings
+                items(detail.offerings) { offering ->
+                    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+                        Text(
+                            offering.reference,
+                            color = Accent,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            offering.text,
+                            color = Ink,
+                            fontFamily = FontFamily.Serif,
+                            fontSize = 14.sp,
+                            lineHeight = 22.sp
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", color = Muted)
+            }
+        }
+    )
 }
 
 // --- Cascading Offering Form ---
@@ -181,17 +379,41 @@ fun OfferingForm(bibleData: BibleData, hasOffered: Boolean, onSubmitted: () -> U
     var selectedChapter by remember { mutableIntStateOf(1) }
     var selectedStartVerse by remember { mutableIntStateOf(1) }
     var selectedEndVerse by remember { mutableIntStateOf(1) }
+    var versePreview by remember { mutableStateOf("") }
+    var maxVerse by remember { mutableIntStateOf(50) }
 
     val selectedBook = books[selectedBookIndex]
     val maxChapters = selectedBook.chapters
-    val chapterVerses = remember(selectedBook, selectedChapter) {
-        // We'll estimate verse count from the book data lazily
-        50 // Default max; actual count resolved when user submits
+
+    // Load actual verse count when book/chapter changes
+    LaunchedEffect(selectedBook.slug, selectedChapter) {
+        try {
+            val book = bibleData.book(selectedBook.slug)
+            val chapterData = book.chapters.getOrNull(selectedChapter - 1)
+            if (chapterData != null) {
+                maxVerse = chapterData.verses.size
+            }
+        } catch (_: Exception) { }
     }
-    val maxVerse = chapterVerses
+
+    // Load verse preview when selections change
+    LaunchedEffect(selectedBook.slug, selectedChapter, selectedStartVerse, selectedEndVerse) {
+        try {
+            val book = bibleData.book(selectedBook.slug)
+            val chapterData = book.chapters.getOrNull(selectedChapter - 1)
+            if (chapterData != null) {
+                val end = selectedEndVerse.coerceAtMost(chapterData.verses.size)
+                val start = selectedStartVerse.coerceAtMost(end)
+                val verses = chapterData.verses.filter { it.number in start..end }
+                versePreview = if (verses.isNotEmpty()) {
+                    "${selectedBook.name} ${selectedChapter}:${start}-${end}\n" +
+                        verses.joinToString(" ") { it.text }
+                } else ""
+            }
+        } catch (_: Exception) { versePreview = "" }
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        // Book selector
         CascadingDropdown(
             label = "Book",
             options = books.map { it.name },
@@ -204,7 +426,6 @@ fun OfferingForm(bibleData: BibleData, hasOffered: Boolean, onSubmitted: () -> U
             }
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            // Chapter selector
             CascadingDropdown(
                 label = "Chapter",
                 options = (1..maxChapters).map { it.toString() },
@@ -216,21 +437,19 @@ fun OfferingForm(bibleData: BibleData, hasOffered: Boolean, onSubmitted: () -> U
                 },
                 modifier = Modifier.weight(1f)
             )
-            // Start verse
             CascadingDropdown(
                 label = "Start",
                 options = (1..maxVerse).map { it.toString() },
-                selectedIndex = selectedStartVerse - 1,
+                selectedIndex = (selectedStartVerse - 1).coerceIn(0, maxVerse - 1),
                 onSelect = { idx ->
                     selectedStartVerse = idx + 1
                     if (selectedEndVerse < selectedStartVerse) selectedEndVerse = selectedStartVerse
                 },
                 modifier = Modifier.weight(1f)
             )
-            // End verse
             CascadingDropdown(
                 label = "End",
-                options = (selectedStartVerse..(selectedStartVerse + 2).coerceAtMost(maxVerse)).map { it.toString() },
+                options = (selectedStartVerse..maxVerse.coerceAtMost(selectedStartVerse + 2)).map { it.toString() },
                 selectedIndex = (selectedEndVerse - selectedStartVerse).coerceAtLeast(0),
                 onSelect = { idx ->
                     selectedEndVerse = selectedStartVerse + idx
@@ -239,6 +458,23 @@ fun OfferingForm(bibleData: BibleData, hasOffered: Boolean, onSubmitted: () -> U
             )
         }
     }
+
+    // Verse preview
+    if (versePreview.isNotBlank()) {
+        Spacer(Modifier.height(12.dp))
+        Text(
+            versePreview,
+            color = Ink,
+            fontFamily = FontFamily.Serif,
+            fontSize = 14.sp,
+            lineHeight = 22.sp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Soft, RoundedCornerShape(6.dp))
+                .padding(12.dp)
+        )
+    }
+
     Spacer(Modifier.height(14.dp))
     Text(
         "After you offer, this form closes for today. The kept Communion is assembled privately from all offerings.",

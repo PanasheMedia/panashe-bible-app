@@ -63,13 +63,13 @@ fun Hero(eyebrow: String?, title: String, intro: String) {
 }
 
 @Composable
-fun SectionCard(content: @Composable ColumnScope.() -> Unit) {
+fun SectionCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, Line), // var(--line) #dfddd6
         shape = RoundedCornerShape(4.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        modifier = Modifier.fillMaxWidth().padding(bottom = 30.dp)
+        modifier = modifier.fillMaxWidth().padding(bottom = 30.dp)
     ) {
         // web .daily-card mobile padding ~24px
         Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 26.dp), content = content)

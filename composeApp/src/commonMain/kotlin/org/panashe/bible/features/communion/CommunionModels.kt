@@ -23,3 +23,21 @@ data class CommunionView(
     val reading: DailyReading,
     val kept: KeptCommunion
 )
+
+/** A single archive day entry for the archive list. */
+data class ArchiveDay(
+    val iso: String,
+    val dateLabel: String,
+    val reference: String,
+    val offerings: List<org.panashe.bible.shared.ScriptureReference>
+)
+
+/** Full detail of an archive day for the dialog. */
+data class ArchiveDetail(
+    val dateLabel: String,
+    val gatheredRef: String,
+    val gatheredText: String,
+    val offerings: List<ArchiveDetailEntry>
+)
+
+data class ArchiveDetailEntry(val reference: String, val text: String)

@@ -37,6 +37,14 @@ class CommunionGenerator(
     /** Total number of seeded days, inclusive of start and end. */
     val totalDays: Int get() = dayIndexForIso(seed.endIso) + 1
 
+    /** ISO date for [baseIso] + [offsetDays], or null if out of range. */
+    fun isoForDate(baseIso: String, offsetDays: Int): String? {
+        val baseIndex = dayIndexForIso(baseIso)
+        val targetIndex = baseIndex + offsetDays
+        if (targetIndex < 0 || targetIndex >= totalDays) return null
+        return isoForIndex(targetIndex)
+    }
+
     private fun themeFor(index: Int): CommunionTheme {
         require(seed.themes.isNotEmpty()) { "Communion seed must include at least one theme." }
         val themeIndex = ((index % seed.themes.size) + seed.themes.size) % seed.themes.size

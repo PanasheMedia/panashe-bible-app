@@ -46,7 +46,7 @@ fun SettingsDialog(
             Text(
                 "Reading settings",
                 color = Ink,
-                fontFamily = FontFamily.Serif,
+                fontFamily = getSerifFontFamily(),
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -115,15 +115,23 @@ fun SettingsDialog(
             SettingRowHeader("Reading font", "Choose the typeface used for Scripture.")
             Spacer(modifier = Modifier.height(12.dp))
 
+            val serifFont = getSerifFontFamily()
+            val lexendFont = getLexendFontFamily()
+            val baskervilleFont = getBaskervilleFontFamily()
+            val atkinsonFont = getAtkinsonFontFamily()
+
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 FontOption("Source Serif", "Balanced", snapshot.fontLabel == "Source Serif") {
-                    prefs.setFont("Source Serif", FontFamily.Serif)
+                    prefs.setFont("Source Serif", serifFont)
                 }
-                FontOption("DM Sans", "Clean", snapshot.fontLabel == "DM Sans") {
-                    prefs.setFont("DM Sans", FontFamily.SansSerif)
+                FontOption("Lexend", "Dyslexia-Friendly", snapshot.fontLabel == "Lexend") {
+                    prefs.setFont("Lexend", lexendFont)
                 }
-                FontOption("Mono", "Technical", snapshot.fontLabel == "Mono") {
-                    prefs.setFont("Mono", FontFamily.Monospace)
+                FontOption("Libre Baskerville", "Traditional", snapshot.fontLabel == "Libre Baskerville") {
+                    prefs.setFont("Libre Baskerville", baskervilleFont)
+                }
+                FontOption("Atkinson Hyperlegible", "Accessible", snapshot.fontLabel == "Atkinson Hyperlegible") {
+                    prefs.setFont("Atkinson Hyperlegible", atkinsonFont)
                 }
             }
         }

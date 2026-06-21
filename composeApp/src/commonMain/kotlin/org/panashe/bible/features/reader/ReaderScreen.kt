@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BasicAlertDialog
@@ -31,11 +32,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -47,6 +54,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import org.panashe.bible.BibleData
 import org.panashe.bible.BibleVerse
 import org.panashe.bible.BookSummary
@@ -62,11 +70,13 @@ import org.panashe.bible.ui.components.LoadingText
 import org.panashe.bible.ui.components.PrimaryAction
 import org.panashe.bible.ui.components.SecondaryAction
 import org.panashe.bible.ui.components.SectionCard
+import androidx.compose.ui.platform.LocalClipboardManager
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DailyReadingScreen(view: CommunionView?, loadError: String?, onBible: () -> Unit) {
     val reading = view?.reading
+    val clipboardManager = LocalClipboardManager.current
 
     SectionCard {
         Eyebrow(reading?.dateLabel ?: "Today's Reading")
@@ -111,8 +121,14 @@ fun DailyReadingScreen(view: CommunionView?, loadError: String?, onBible: () -> 
         Text(reading?.chapterIntro ?: "The chapter context will appear when bundled Scripture finishes loading.", color = Muted, lineHeight = 24.sp)
         Spacer(Modifier.height(16.dp))
         FlowRow(horizontalArrangement = Arrangement.Center, verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            PrimaryAction("Read full chapter") {}
-            SecondaryAction("Copy passage") {}
+            PrimaryAction("Read full chapter") { onBible() }
+            SecondaryAction("Copy passage") {
+                if (reading != null) {
+                    val passageText = reading.verses.joinToString(" ") { it.text }
+                    val fullText = "${reading.display}\n$passageText"
+                    clipboardManager.setText(AnnotatedString(fullText))
+                }
+            }
             SecondaryAction("Browse the Bible", onBible)
         }
     }
@@ -158,6 +174,9 @@ fun BibleScreen(
     // Navigation state
     var showBookPicker by remember { mutableStateOf(false) }
     var showChapterPicker by remember { mutableStateOf(false) }
+    var showVersePicker by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
 
     val previousChapter = if (chapter > 1) chapter - 1 else null
     val nextChapter = if (bookSummary != null && chapter < bookSummary.chapters) chapter + 1 else null
@@ -211,6 +230,48 @@ fun BibleScreen(
         )
 
         Spacer(Modifier.height(26.dp))
+
+        // Verse picker toggle
+        if (verses.isNotEmpty()) {
+            Text(
+                if (showVersePicker) "Hide verse picker" else "Jump to verse",
+                color = Accent,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.fillMaxWidth()
+                    .clickable { showVersePicker = !showVersePicker }
+                    .padding(bottom = 12.dp)
+            )
+            if (showVersePicker) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+                ) {
+                    verses.forEach { verse ->
+                        Surface(
+                            color = Soft,
+                            shape = RoundedCornerShape(4.dp),
+                            modifier = Modifier.clickable {
+                                showVersePicker = false
+                                coroutineScope.launch {
+                                    val index = verses.indexOf(verse)
+                                    if (index >= 0) listState.animateScrollToItem(index)
+                                }
+                            }
+                        ) {
+                            Text(
+                                "${verse.number}",
+                                color = Ink,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
 
         when {
             loadError != null -> LoadingText(loadError)
@@ -382,6 +443,8 @@ fun BookPickerDialog(
     onSelect: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val sections = books.groupBy { it.section }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -389,27 +452,50 @@ fun BookPickerDialog(
         },
         text = {
             LazyColumn {
-                items(books) { book ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth()
-                            .clickable { onSelect(book.slug) }
-                            .background(
-                                if (book.slug == selectedSlug) Accent.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface,
-                                RoundedCornerShape(6.dp)
-                            )
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
+                sections.forEach { (section, sectionBooks) ->
+                    // Section heading
+                    item {
                         Text(
-                            book.name,
-                            color = Ink,
-                            fontFamily = FontFamily.Serif,
-                            fontSize = 16.sp,
-                            fontWeight = if (book.slug == selectedSlug) FontWeight.SemiBold else FontWeight.Normal
+                            section.uppercase(),
+                            color = Accent,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 0.8.sp,
+                            modifier = Modifier.padding(top = if (section == "Old Testament") 0.dp else 16.dp, bottom = 8.dp)
                         )
-                        if (book.slug == selectedSlug) {
-                            Text("✓", color = Accent, fontSize = 16.sp)
+                    }
+                    items(sectionBooks) { book ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth()
+                                .clickable { onSelect(book.slug) }
+                                .background(
+                                    if (book.slug == selectedSlug) Accent.copy(alpha = 0.08f) else Color.Transparent,
+                                    RoundedCornerShape(6.dp)
+                                )
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    book.name,
+                                    color = Ink,
+                                    fontFamily = FontFamily.Serif,
+                                    fontSize = 16.sp,
+                                    fontWeight = if (book.slug == selectedSlug) FontWeight.SemiBold else FontWeight.Normal
+                                )
+                                if (book.description.isNotBlank()) {
+                                    Text(
+                                        "${book.description} \u00B7 ${book.chapters} chapters",
+                                        color = Muted,
+                                        fontSize = 11.sp,
+                                        lineHeight = 15.sp
+                                    )
+                                }
+                            }
+                            if (book.slug == selectedSlug) {
+                                Text("\u2713", color = Accent, fontSize = 16.sp)
+                            }
                         }
                     }
                 }
