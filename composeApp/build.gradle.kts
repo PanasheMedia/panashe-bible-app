@@ -12,6 +12,7 @@ val appVersionCode = xcconfig.getProperty("CURRENT_PROJECT_VERSION")?.toIntOrNul
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
+    alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlinxSerialization)
@@ -22,14 +23,10 @@ kotlin {
         languageSettings.optIn("androidx.compose.foundation.layout.ExperimentalLayoutApi")
     }
 
-    wasmJs {
-        moduleName = "panashe-bible"
-        browser {
-            commonWebpackConfig {
-                outputFileName = "panashe-bible.js"
-            }
+    androidTarget {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
         }
-        binaries.executable()
     }
 
     val xcf = XCFramework("PanasheBibleShared")
@@ -61,8 +58,32 @@ kotlin {
             implementation(libs.kotlin.test)
         }
 
-        wasmJsMain.dependencies {
-            implementation(libs.kotlinx.browser)
+        androidMain.dependencies {
+            implementation(libs.androidx.activity.compose)
+        }
+    }
+}
+
+android {
+    namespace = "org.panashe.bible"
+    compileSdk = libs.versions.android.compileSdk.get().toInt()
+
+    defaultConfig {
+        applicationId = "org.panashe.bible"
+        minSdk = libs.versions.android.minSdk.get().toInt()
+        targetSdk = libs.versions.android.targetSdk.get().toInt()
+        versionCode = appVersionCode
+        versionName = appVersionName
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
         }
     }
 }

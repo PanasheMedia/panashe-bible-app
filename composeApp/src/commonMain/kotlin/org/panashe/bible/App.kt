@@ -31,8 +31,10 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.panashe.bible.features.communion.CommunionRepository
 import org.panashe.bible.features.communion.CommunionScreen
 import org.panashe.bible.features.communion.CommunionView
+import org.panashe.bible.features.communion.StaticCommunionRepository
 import org.panashe.bible.features.pages.TextPage
 import org.panashe.bible.features.reader.BibleScreen
 import org.panashe.bible.features.reader.DailyReadingScreen
@@ -43,16 +45,13 @@ import org.panashe.bible.ui.PanasheTheme
 import org.panashe.bible.ui.Paper
 
 @Composable
-fun PanasheApp() {
+fun PanasheApp(repository: CommunionRepository = StaticCommunionRepository()) {
     var route by remember { mutableStateOf(PanasheRoute.Daily) }
     var view by remember { mutableStateOf<CommunionView?>(null) }
     var loadError by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(Unit) {
-        runCatching {
-            val data = loadBundledBibleData()
-            buildCommunionView(data)
-        }
+    LaunchedEffect(repository) {
+        runCatching { repository.todayView() }
             .onSuccess { view = it }
             .onFailure { loadError = it.message ?: "Unable to load bundled Bible data." }
     }
