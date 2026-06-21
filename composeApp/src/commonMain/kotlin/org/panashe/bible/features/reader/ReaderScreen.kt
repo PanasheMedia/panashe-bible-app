@@ -46,24 +46,27 @@ fun DailyReadingScreen(view: CommunionView?, loadError: String?, onBible: () -> 
     SectionCard {
         Eyebrow("Today's Reading")
         Spacer(Modifier.height(10.dp))
+        // web .daily-card h2: 600 1.45rem serif
         Text(
             reading?.display ?: "Loading...",
             color = Ink,
             fontFamily = FontFamily.Serif,
-            fontSize = 34.sp,
-            lineHeight = 38.sp
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 24.sp,
+            lineHeight = 30.sp
         )
         Spacer(Modifier.height(16.dp))
         when {
             loadError != null -> LoadingText(loadError)
             reading == null -> LoadingText("Loading Scripture...")
             else -> reading.verses.forEach { verse ->
+                // web .scripture: 400 1.12rem/1.9 serif
                 Text(
                     text = verse.text,
                     color = Ink,
                     fontFamily = FontFamily.Serif,
-                    fontSize = 20.sp,
-                    lineHeight = 36.sp,
+                    fontSize = 18.sp,
+                    lineHeight = 34.sp,
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
             }

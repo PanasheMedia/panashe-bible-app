@@ -37,21 +37,24 @@ fun LoadingText(text: String) {
 
 @Composable
 fun Hero(eyebrow: String?, title: String, intro: String) {
+    // Mirrors web .daily-hero (mobile): padding 24/0/20, h1 600 ~2.8rem/1 serif
+    // with letter-spacing -.045em; intro .95rem/1.65 muted, max-width 480.
     Column(
-        modifier = Modifier.fillMaxWidth().padding(top = 54.dp, bottom = 16.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = 28.dp, bottom = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         if (eyebrow != null) {
             Eyebrow(eyebrow)
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(7.dp))
         }
         Text(
             title,
             color = Ink,
             fontFamily = FontFamily.Serif,
-            fontSize = 52.sp,
-            lineHeight = 54.sp,
+            fontSize = 45.sp,
+            lineHeight = 46.sp,
             fontWeight = FontWeight.SemiBold,
+            letterSpacing = (-2).sp,
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.height(14.dp))
@@ -63,22 +66,25 @@ fun Hero(eyebrow: String?, title: String, intro: String) {
 fun SectionCard(content: @Composable ColumnScope.() -> Unit) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)), // Match var(--line) which we put in PanasheTheme
+        border = BorderStroke(1.dp, Line), // var(--line) #dfddd6
         shape = RoundedCornerShape(4.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
+        modifier = Modifier.fillMaxWidth().padding(bottom = 30.dp)
     ) {
-        Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 32.dp), content = content)
+        // web .daily-card mobile padding ~24px
+        Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 26.dp), content = content)
     }
 }
 
 @Composable
 fun Eyebrow(text: String) {
+    // web .eyebrow: accent, .65rem, 600, letter-spacing .14em, uppercase
     Text(
         text = text.uppercase(),
         color = Accent,
         fontSize = 10.sp,
-        fontWeight = FontWeight.SemiBold
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = 1.4.sp
     )
 }
 

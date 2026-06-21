@@ -22,6 +22,16 @@ kotlin {
         languageSettings.optIn("androidx.compose.foundation.layout.ExperimentalLayoutApi")
     }
 
+    wasmJs {
+        moduleName = "panashe-bible"
+        browser {
+            commonWebpackConfig {
+                outputFileName = "panashe-bible.js"
+            }
+        }
+        binaries.executable()
+    }
+
     val xcf = XCFramework("PanasheBibleShared")
 
     listOf(
@@ -49,6 +59,10 @@ kotlin {
 
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+        }
+
+        wasmJsMain.dependencies {
+            implementation(libs.kotlinx.browser)
         }
     }
 }
