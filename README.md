@@ -6,6 +6,7 @@ The project follows an iOS-first version of the NuvioMobile shape:
 
 - `composeApp/` contains shared Kotlin Multiplatform and Compose Multiplatform UI.
 - `composeApp/src/commonMain/` contains shared routes, content, theme, and screens.
+- `composeApp/src/commonMain/composeResources/files/bible/` contains the bundled Bible data exported from `panashe-bible-shared`.
 - `composeApp/src/iosMain/` contains iOS-specific Compose entry points.
 - `iosApp/` is the native iOS host.
 
@@ -27,3 +28,13 @@ Useful checks:
 ./gradlew :composeApp:compileKotlinIosSimulatorArm64
 ```
 
+## Shared Data
+
+Bible data is not authored in this repo. Update the canonical data in `panashe-bible-shared`, then export the app bundle:
+
+```bash
+cd ../panashe-bible-shared
+npm run export:app
+```
+
+The app should read Scripture, search data, and Communion seed data from `composeResources/files/bible`. Keep app-specific state separate from the bundled corpus.

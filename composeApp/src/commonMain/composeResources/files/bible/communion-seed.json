@@ -1,0 +1,34 @@
+{
+  "startIso": "2026-06-01",
+  "endIso": "2027-05-31",
+  "themes": [
+    {
+      "gathered": ["john", 1, 1, 3],
+      "offerings": [["john", 13, 34, 35], ["romans", 12, 10, 10], ["i-peter", 1, 22, 22], ["colossians", 3, 14, 14], ["psalms", 133, 1, 1], ["i-john", 4, 7, 8]]
+    },
+    {
+      "gathered": ["john", 14, 27, 27],
+      "offerings": [["numbers", 6, 24, 26], ["isaiah", 26, 3, 3], ["psalms", 29, 11, 11], ["romans", 5, 1, 1], ["philippians", 4, 7, 7], ["ii-thessalonians", 3, 16, 16]]
+    },
+    {
+      "gathered": ["hebrews", 11, 1, 1],
+      "offerings": [["habakkuk", 2, 4, 4], ["romans", 1, 17, 17], ["galatians", 2, 20, 20], ["ii-corinthians", 5, 7, 7], ["james", 2, 17, 17], ["i-john", 5, 4, 4]]
+    },
+    {
+      "gathered": ["micah", 6, 8, 8],
+      "offerings": [["hosea", 6, 6, 6], ["matthew", 9, 13, 13], ["luke", 6, 36, 36], ["ephesians", 2, 4, 5], ["james", 2, 13, 13], ["psalms", 103, 8, 8]]
+    },
+    {
+      "gathered": ["proverbs", 3, 5, 6],
+      "offerings": [["psalms", 111, 10, 10], ["james", 1, 5, 5], ["colossians", 2, 3, 3], ["ecclesiastes", 12, 13, 13], ["ii-timothy", 3, 16, 17], ["matthew", 7, 24, 24]]
+    },
+    {
+      "gathered": ["john", 11, 25, 26],
+      "offerings": [["job", 19, 25, 26], ["psalms", 16, 10, 11], ["isaiah", 25, 8, 8], ["romans", 8, 11, 11], ["i-corinthians", 15, 20, 22], ["revelation-of-john", 21, 4, 4]]
+    },
+    {
+      "gathered": ["hebrews", 4, 12, 12],
+      "offerings": [["deuteronomy", 8, 3, 3], ["psalms", 119, 105, 105], ["isaiah", 55, 11, 11], ["matthew", 4, 4, 4], ["john", 6, 63, 63], ["ii-timothy", 3, 16, 16]]
+    }
+  ]
+}
