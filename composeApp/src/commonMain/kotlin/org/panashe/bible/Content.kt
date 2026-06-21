@@ -1,86 +1,111 @@
 package org.panashe.bible
 
+import org.panashe.bible.shared.ScriptureReference
+import org.panashe.bible.shared.SharedConstants
+import org.panashe.bible.shared.SharedRules
+
+// Routes mirror panashe-bible-shared PUBLIC_ROUTES (single-sourced via SharedConstants).
 enum class PanasheRoute(val path: String, val title: String) {
-    Daily("/", "Daily"),
-    Bible("/bible", "Scripture"),
-    Communion("/bible/church", "Communion"),
-    About("/about", "About"),
-    Privacy("/privacy", "Privacy")
+    Daily(SharedConstants.ROUTE_DAILY, "Daily"),
+    Bible(SharedConstants.ROUTE_BIBLE, "Scripture"),
+    Communion(SharedConstants.ROUTE_COMMUNION, "Communion"),
+    About(SharedConstants.ROUTE_ABOUT, "About"),
+    Privacy(SharedConstants.ROUTE_PRIVACY, "Privacy")
 }
 
-data class ScriptureReading(
-    val label: String,
-    val reference: String,
-    val intro: String,
-    val verses: List<String>,
-    val contextTitle: String,
-    val context: String
-)
-
+/** A Communion entry with its display reference and the resolved Scripture text. */
 data class CommunionEntry(
-    val reference: String,
+    val reference: ScriptureReference,
+    val display: String,
     val preview: String,
     val state: String
 )
 
+/** The kept seven: one gathered passage with [SharedConstants.KEPT_BENEATH_COUNT] beneath. */
 data class KeptCommunion(
     val date: String,
     val gathered: CommunionEntry,
     val beneath: List<CommunionEntry>
 )
 
-val todayReading = ScriptureReading(
-    label = "Today's Reading",
-    reference = "John 1:1-3",
-    intro = "A passage for today, drawn from the opening witness of John.",
-    verses = listOf(
-        "In the beginning was the Word, and the Word was with God, and the Word was God.",
-        "The same was in the beginning with God.",
-        "All things were made by him; and without him was not any thing made that was made."
-    ),
-    contextTitle = "Chapter Context",
-    context = "John 1 opens with the Word before creation, drawing the reader back to Christ as the beginning and the life of the world."
+/** Today's reading derived from the seed's gathered passage. */
+data class DailyReading(
+    val dateLabel: String,
+    val reference: ScriptureReference,
+    val display: String,
+    val chapterTitle: String,
+    val chapterIntro: String,
+    val verses: List<BibleVerse>,
+    val chapterVerses: List<BibleVerse>
 )
 
-val todayCommunion = KeptCommunion(
-    date = "June 1, 2026",
-    gathered = CommunionEntry(
-        reference = "John 1:1-3",
-        preview = "In the beginning was the Word, and the Word was with God, and the Word was God. The same was in the beginning with God. All things were made by him; and without him was not any thing made that was made.",
+/** Everything the screens need, derived from bundled data + shared rules. */
+data class CommunionView(
+    val reading: DailyReading,
+    val kept: KeptCommunion
+)
+
+/**
+ * Builds the daily reading and kept Communion from the bundled seed and shared
+ * rules. No Scripture text or references are hardcoded here; they are resolved
+ * from the canonical data exported by panashe-bible-shared.
+ */
+suspend fun buildCommunionView(data: BibleData): CommunionView {
+    val theme = data.seed.first
+    val gatheredRef = theme.gathered
+    val gatheredBook = data.book(gatheredRef.book)
+    val gatheredChapter = gatheredBook.chapter(gatheredRef.chapter)
+
+    val reading = DailyReading(
+        dateLabel = formatDate(data.seed.startIso),
+        reference = gatheredRef,
+        display = data.displayReference(gatheredRef),
+        chapterTitle = "${gatheredBook.name} ${gatheredRef.chapter}",
+        chapterIntro = gatheredChapter?.introduction ?: gatheredBook.introduction,
+        verses = gatheredChapter?.verseRange(gatheredRef.startVerse, gatheredRef.endVerse).orEmpty(),
+        chapterVerses = gatheredChapter?.verses.orEmpty()
+    )
+
+    val gatheredEntry = CommunionEntry(
+        reference = gatheredRef,
+        display = data.displayReference(gatheredRef),
+        preview = data.passageText(gatheredRef),
         state = "Gathered passage"
-    ),
-    beneath = listOf(
+    )
+
+    val beneath = theme.offerings.map { ref ->
         CommunionEntry(
-            reference = "John 13:34-35",
-            preview = "A new commandment I give unto you, That ye love one another; as I have loved you...",
-            state = "Kept beneath"
-        ),
-        CommunionEntry(
-            reference = "Romans 12:10",
-            preview = "Be kindly affectioned one to another with brotherly love; in honour preferring one another;",
-            state = "Kept beneath"
-        ),
-        CommunionEntry(
-            reference = "I Peter 1:22",
-            preview = "Seeing ye have purified your souls in obeying the truth through the Spirit unto unfeigned love of the brethren...",
-            state = "Kept beneath"
-        ),
-        CommunionEntry(
-            reference = "Colossians 3:14",
-            preview = "And above all these things put on charity, which is the bond of perfectness.",
-            state = "Kept beneath"
-        ),
-        CommunionEntry(
-            reference = "Psalms 133:1",
-            preview = "Behold, how good and how pleasant it is for brethren to dwell together in unity!",
-            state = "Kept beneath"
-        ),
-        CommunionEntry(
-            reference = "I John 4:7-8",
-            preview = "Beloved, let us love one another: for love is of God...",
+            reference = ref,
+            display = data.displayReference(ref),
+            preview = data.passageText(ref),
             state = "Kept beneath"
         )
+    }
+
+    return CommunionView(
+        reading = reading,
+        kept = KeptCommunion(
+            date = formatDate(data.seed.startIso),
+            gathered = gatheredEntry,
+            beneath = beneath
+        )
     )
+}
+
+/** Formats an ISO date (yyyy-MM-dd) as "Month D, YYYY" without platform date APIs. */
+fun formatDate(iso: String): String {
+    val parts = iso.split("-")
+    if (parts.size != 3) return iso
+    val year = parts[0]
+    val month = parts[1].toIntOrNull() ?: return iso
+    val day = parts[2].toIntOrNull()?.toString() ?: parts[2]
+    val monthName = MONTHS.getOrNull(month - 1) ?: return iso
+    return "$monthName $day, $year"
+}
+
+private val MONTHS = listOf(
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
 )
 
 val aboutParagraphs = listOf(

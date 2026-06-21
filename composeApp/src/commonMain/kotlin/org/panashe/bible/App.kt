@@ -56,12 +56,15 @@ private val Accent = Color(0xFFC64F35)
 @Composable
 fun PanasheApp() {
     var route by remember { mutableStateOf(PanasheRoute.Daily) }
-    var bibleData by remember { mutableStateOf<BibleData?>(null) }
+    var view by remember { mutableStateOf<CommunionView?>(null) }
     var loadError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
-        runCatching { loadBundledBibleData() }
-            .onSuccess { bibleData = it }
+        runCatching {
+            val data = loadBundledBibleData()
+            buildCommunionView(data)
+        }
+            .onSuccess { view = it }
             .onFailure { loadError = it.message ?: "Unable to load bundled Bible data." }
     }
 
@@ -96,12 +99,12 @@ fun PanasheApp() {
                     ) {
                         when (route) {
                             PanasheRoute.Daily -> DailyReadingScreen(
-                                bibleData = bibleData,
+                                view = view,
                                 loadError = loadError,
                                 onBible = { route = PanasheRoute.Bible }
                             )
-                            PanasheRoute.Bible -> BibleScreen(bibleData = bibleData, loadError = loadError)
-                            PanasheRoute.Communion -> CommunionScreen(bibleData = bibleData)
+                            PanasheRoute.Bible -> BibleScreen(view = view, loadError = loadError)
+                            PanasheRoute.Communion -> CommunionScreen(view = view)
                             PanasheRoute.About -> TextPage("About", aboutParagraphs)
                             PanasheRoute.Privacy -> TextPage("Privacy Policy", privacyParagraphs)
                         }
@@ -161,21 +164,19 @@ private fun HeaderAction(label: String) {
 }
 
 @Composable
-private fun DailyReadingScreen(bibleData: BibleData?, loadError: String?, onBible: () -> Unit) {
+private fun DailyReadingScreen(view: CommunionView?, loadError: String?, onBible: () -> Unit) {
+    val reading = view?.reading
     Hero(
-        eyebrow = "June 1, 2026",
+        eyebrow = reading?.dateLabel ?: "Daily",
         title = "Daily Reading",
         intro = "A daily portion of Holy Scripture for reading, remembrance, and obedience before God."
     )
-
-    val chapter = bibleData?.johnOne
-    val verses = chapter?.verses?.take(3)
 
     SectionCard {
         Eyebrow("Today's Reading")
         Spacer(Modifier.height(10.dp))
         Text(
-            "John 1:1-3",
+            reading?.display ?: "Loading...",
             color = Ink,
             fontFamily = FontFamily.Serif,
             fontSize = 34.sp,
@@ -184,8 +185,8 @@ private fun DailyReadingScreen(bibleData: BibleData?, loadError: String?, onBibl
         Spacer(Modifier.height(16.dp))
         when {
             loadError != null -> LoadingText(loadError)
-            verses == null -> LoadingText("Loading Scripture...")
-            else -> verses.forEach { verse ->
+            reading == null -> LoadingText("Loading Scripture...")
+            else -> reading.verses.forEach { verse ->
                 Text(
                     text = verse.text,
                     color = Ink,
@@ -201,9 +202,9 @@ private fun DailyReadingScreen(bibleData: BibleData?, loadError: String?, onBibl
     SectionCard {
         Eyebrow("Chapter Context")
         Spacer(Modifier.height(10.dp))
-        Text("John 1", color = Ink, fontFamily = FontFamily.Serif, fontSize = 30.sp)
+        Text(reading?.chapterTitle ?: "Chapter", color = Ink, fontFamily = FontFamily.Serif, fontSize = 30.sp)
         Spacer(Modifier.height(10.dp))
-        Text(chapter?.introduction ?: "The opening chapter will appear when bundled Scripture finishes loading.", color = Muted, lineHeight = 24.sp)
+        Text(reading?.chapterIntro ?: "The chapter context will appear when bundled Scripture finishes loading.", color = Muted, lineHeight = 24.sp)
         Spacer(Modifier.height(16.dp))
         FlowRow(horizontalArrangement = Arrangement.Center, verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
             PrimaryAction("Read full chapter") {}
@@ -214,16 +215,16 @@ private fun DailyReadingScreen(bibleData: BibleData?, loadError: String?, onBibl
 }
 
 @Composable
-private fun BibleScreen(bibleData: BibleData?, loadError: String?) {
-    val chapter = bibleData?.johnOne
-    ReaderToolbar()
+private fun BibleScreen(view: CommunionView?, loadError: String?) {
+    val reading = view?.reading
+    ReaderToolbar(reading)
     SectionCard {
-        Eyebrow("The Gospel According to John")
+        Eyebrow(reading?.chapterTitle ?: "Scripture")
         Spacer(Modifier.height(10.dp))
-        Text("John 1", color = Ink, fontFamily = FontFamily.Serif, fontSize = 52.sp, lineHeight = 56.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        Text(reading?.chapterTitle ?: "Bible", color = Ink, fontFamily = FontFamily.Serif, fontSize = 52.sp, lineHeight = 56.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(10.dp))
         Text(
-            chapter?.introduction ?: "Loading the bundled Scripture text.",
+            reading?.chapterIntro ?: "Loading the bundled Scripture text.",
             color = Muted,
             fontSize = 13.sp,
             lineHeight = 22.sp,
@@ -233,8 +234,8 @@ private fun BibleScreen(bibleData: BibleData?, loadError: String?) {
         Spacer(Modifier.height(26.dp))
         when {
             loadError != null -> LoadingText(loadError)
-            chapter == null -> LoadingText("Loading Scripture...")
-            else -> chapter.verses.forEach { verse ->
+            reading == null -> LoadingText("Loading Scripture...")
+            else -> reading.chapterVerses.forEach { verse ->
                 Text(
                     text = "${verse.number}  ${verse.text}",
                     color = Ink,
@@ -249,10 +250,13 @@ private fun BibleScreen(bibleData: BibleData?, loadError: String?) {
 }
 
 @Composable
-private fun CommunionScreen(bibleData: BibleData?) {
+private fun CommunionScreen(view: CommunionView?) {
     var hasOffered by remember { mutableStateOf(false) }
     var selectedTopTab by remember { mutableStateOf("read") }
     var selectedKeptTab by remember { mutableStateOf("today") }
+
+    val reading = view?.reading
+    val kept = view?.kept
 
     CommunionHero()
 
@@ -266,10 +270,10 @@ private fun CommunionScreen(bibleData: BibleData?) {
         )
         Spacer(Modifier.height(18.dp))
         if (selectedTopTab == "read") {
-            Eyebrow("June 1, 2026")
-            Text("John 1:1-3", color = Ink, fontFamily = FontFamily.Serif, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+            Eyebrow(reading?.dateLabel ?: "Today")
+            Text(reading?.display ?: "Loading...", color = Ink, fontFamily = FontFamily.Serif, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(14.dp))
-            Text(bibleData?.johnOne?.introduction ?: "Loading the chapter context from bundled Scripture.", color = Muted, fontSize = 14.sp, lineHeight = 24.sp)
+            Text(reading?.chapterIntro ?: "Loading the chapter context from bundled Scripture.", color = Muted, fontSize = 14.sp, lineHeight = 24.sp)
             Spacer(Modifier.height(14.dp))
             PrimaryAction("Read the full chapter") {}
         } else {
@@ -308,7 +312,11 @@ private fun CommunionScreen(bibleData: BibleData?) {
             onSecond = { selectedKeptTab = "previous" }
         )
         Spacer(Modifier.height(20.dp))
-        KeptCommunionContent(todayCommunion, if (selectedKeptTab == "today") "Today" else "Previous")
+        if (kept == null) {
+            LoadingText("Loading the kept Communion...")
+        } else {
+            KeptCommunionContent(kept, if (selectedKeptTab == "today") "Today" else "Previous")
+        }
     }
 
     SectionCard {
@@ -321,7 +329,9 @@ private fun CommunionScreen(bibleData: BibleData?) {
             lineHeight = 24.sp
         )
         Spacer(Modifier.height(14.dp))
-        ArchiveRow(todayCommunion.date, todayCommunion.gathered.reference)
+        if (kept != null) {
+            ArchiveRow(kept.date, kept.gathered.display)
+        }
     }
 }
 
@@ -355,10 +365,12 @@ private fun Hero(eyebrow: String?, title: String, intro: String) {
 }
 
 @Composable
-private fun ReaderToolbar() {
+private fun ReaderToolbar(reading: DailyReading?) {
+    val bookName = reading?.chapterTitle?.substringBeforeLast(" ") ?: "Book"
+    val chapterNumber = reading?.reference?.chapter?.toString() ?: "1"
     Row(modifier = Modifier.fillMaxWidth().border(BorderStroke(1.dp, Line)), verticalAlignment = Alignment.CenterVertically) {
-        ToolbarSelector("Book", "John", Modifier.weight(1f))
-        ToolbarSelector("Chapter", "1", Modifier.weight(1f))
+        ToolbarSelector("Book", bookName, Modifier.weight(1f))
+        ToolbarSelector("Chapter", chapterNumber, Modifier.weight(1f))
         ToolbarSelector("Translation", "KJVA", Modifier.weight(1f))
     }
 }
@@ -449,7 +461,7 @@ private fun ReferencePill(label: String) {
 private fun KeptCommunionContent(communion: KeptCommunion, label: String) {
     Eyebrow(label)
     Spacer(Modifier.height(6.dp))
-    Text(communion.gathered.reference, color = Ink, fontFamily = FontFamily.Serif, fontSize = 30.sp, fontWeight = FontWeight.SemiBold)
+    Text(communion.gathered.display, color = Ink, fontFamily = FontFamily.Serif, fontSize = 30.sp, fontWeight = FontWeight.SemiBold)
     Spacer(Modifier.height(8.dp))
     Text(communion.gathered.preview, color = Ink, fontFamily = FontFamily.Serif, fontSize = 18.sp, lineHeight = 32.sp)
     Spacer(Modifier.height(20.dp))
@@ -457,7 +469,7 @@ private fun KeptCommunionContent(communion: KeptCommunion, label: String) {
     Spacer(Modifier.height(10.dp))
     communion.beneath.forEach { entry ->
         Column(modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp).border(BorderStroke(1.dp, Line)).padding(14.dp)) {
-            Text(entry.reference, color = Ink, fontFamily = FontFamily.Serif, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+            Text(entry.display, color = Ink, fontFamily = FontFamily.Serif, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(4.dp))
             Text(entry.preview, color = Muted, fontSize = 14.sp, lineHeight = 23.sp)
         }
