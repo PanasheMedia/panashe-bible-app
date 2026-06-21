@@ -10,7 +10,6 @@ kotlin {
     val xcf = XCFramework("PanasheBibleShared")
 
     listOf(
-        iosX64(),
         iosArm64(),
         iosSimulatorArm64()
     ).forEach { iosTarget ->
@@ -18,7 +17,6 @@ kotlin {
             baseName = "PanasheBibleShared"
             isStatic = true
             xcf.add(this)
-            binaryOptions["optimizationMode"] = "debug"
         }
     }
 
@@ -36,4 +34,3 @@ kotlin {
         }
     }
 }
-
