@@ -185,8 +185,8 @@ private fun DailyReadingScreen(onBible: () -> Unit) {
         Text(todayReading.context, color = Muted, lineHeight = 24.sp)
         Spacer(Modifier.height(16.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            PrimaryAction("Read chapter") {}
-            SecondaryAction("Browse Bible", onBible)
+            PrimaryAction("Read the full chapter") {}
+            SecondaryAction("Browse Scripture", onBible)
         }
     }
 }
@@ -208,11 +208,13 @@ private fun BibleScreen() {
 
 @Composable
 private fun CommunionScreen() {
+    var hasOffered by remember { mutableStateOf(false) }
+
     SectionCard {
-        Eyebrow("Today's Communion")
+        Eyebrow("Daily Communion")
         Spacer(Modifier.height(10.dp))
         Text(
-            "A daily gathering of Scripture, beginning with today's reading.",
+            "Today's Reading. Today's Offering. Today's Communion.",
             color = Ink,
             fontFamily = FontFamily.Serif,
             fontSize = 28.sp,
@@ -220,19 +222,95 @@ private fun CommunionScreen() {
         )
         Spacer(Modifier.height(10.dp))
         Text(
-            "Readers offer one complete reference, up to three consecutive verses. No accounts, no comments, no public noise.",
+            "Readers offer one complete Scripture reference. Matching references form the Common Witness; quieter offerings remain part of the Hidden Witness.",
             color = Muted,
             lineHeight = 24.sp
         )
     }
 
-    communionEntries.forEach { entry ->
-        SectionCard {
-            Eyebrow(entry.state)
-            Spacer(Modifier.height(8.dp))
-            Text(entry.reference, color = Ink, fontFamily = FontFamily.Serif, fontSize = 24.sp)
-            Spacer(Modifier.height(8.dp))
-            Text(entry.preview, color = Ink, lineHeight = 24.sp)
+    SectionCard {
+        Eyebrow("Today's Reading")
+        Spacer(Modifier.height(8.dp))
+        Text(todayReading.reference, color = Ink, fontFamily = FontFamily.Serif, fontSize = 28.sp)
+        Spacer(Modifier.height(8.dp))
+        Text("Begin with today's 3 verses, then offer one reference in response.", color = Muted, lineHeight = 24.sp)
+        Spacer(Modifier.height(14.dp))
+        PrimaryAction("Read today's 3 verses") {}
+    }
+
+    SectionCard {
+        Eyebrow("Today's Offering")
+        Spacer(Modifier.height(8.dp))
+        Text("Offer one reference", color = Ink, fontFamily = FontFamily.Serif, fontSize = 28.sp)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Choose book, chapter, and 1-3 consecutive verses. If another reader offers the same verse, it gains a private count.",
+            color = Muted,
+            lineHeight = 24.sp
+        )
+        Spacer(Modifier.height(14.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            ReferencePill("Book")
+            ReferencePill("Chapter")
+            ReferencePill("Start")
+            ReferencePill("End")
+        }
+        Spacer(Modifier.height(14.dp))
+        if (hasOffered) {
+            Text(
+                "Your offering has been received for today. It stays private unless gathered.",
+                color = Gold,
+                fontWeight = FontWeight.SemiBold,
+                lineHeight = 22.sp
+            )
+            Spacer(Modifier.height(10.dp))
+            PrimaryAction("Offering Received") {}
+        } else {
+            PrimaryAction("Submit today's offering") { hasOffered = true }
+        }
+    }
+
+    SectionCard {
+        Eyebrow("Today's Communion")
+        Spacer(Modifier.height(8.dp))
+        Text("View the kept seven", color = Ink, fontFamily = FontFamily.Serif, fontSize = 28.sp)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "The public page shows one gathered passage with six beneath it. Names, counts, rankings, and non-kept offerings stay hidden.",
+            color = Muted,
+            lineHeight = 24.sp
+        )
+    }
+
+    KeptCommunionCard(todayCommunion)
+}
+
+@Composable
+private fun ReferencePill(label: String) {
+    Surface(
+        color = Color(0xFFFBFAF7),
+        border = BorderStroke(1.dp, Line),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Text(label, color = Muted, modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp))
+    }
+}
+
+@Composable
+private fun KeptCommunionCard(communion: KeptCommunion) {
+    SectionCard {
+        Eyebrow(communion.date)
+        Spacer(Modifier.height(10.dp))
+        Text(communion.gathered.reference, color = Ink, fontFamily = FontFamily.Serif, fontSize = 30.sp)
+        Spacer(Modifier.height(8.dp))
+        Text(communion.gathered.preview, color = Ink, lineHeight = 25.sp)
+        Spacer(Modifier.height(18.dp))
+        Eyebrow("${communion.beneath.size} kept beneath")
+        Spacer(Modifier.height(10.dp))
+        communion.beneath.forEach { entry ->
+            Text(entry.reference, color = Ink, fontFamily = FontFamily.Serif, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(4.dp))
+            Text(entry.preview, color = Muted, lineHeight = 23.sp, modifier = Modifier.padding(bottom = 12.dp))
         }
     }
 }

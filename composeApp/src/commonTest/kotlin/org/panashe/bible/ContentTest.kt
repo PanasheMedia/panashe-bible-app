@@ -18,5 +18,10 @@ class ContentTest {
     fun dailyReadingHasScripture() {
         assertTrue(todayReading.verses.isNotEmpty())
     }
-}
 
+    @Test
+    fun communionUsesKeptSeven() {
+        assertEquals("John 1:1-3", todayCommunion.gathered.reference)
+        assertEquals(6, todayCommunion.beneath.size)
+    }
+}
