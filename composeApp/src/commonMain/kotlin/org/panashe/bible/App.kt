@@ -31,6 +31,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,6 +56,14 @@ private val Accent = Color(0xFFC64F35)
 @Composable
 fun PanasheApp() {
     var route by remember { mutableStateOf(PanasheRoute.Daily) }
+    var bibleData by remember { mutableStateOf<BibleData?>(null) }
+    var loadError by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        runCatching { loadBundledBibleData() }
+            .onSuccess { bibleData = it }
+            .onFailure { loadError = it.message ?: "Unable to load bundled Bible data." }
+    }
 
     MaterialTheme(
         colorScheme = MaterialTheme.colorScheme.copy(
@@ -87,10 +96,12 @@ fun PanasheApp() {
                     ) {
                         when (route) {
                             PanasheRoute.Daily -> DailyReadingScreen(
+                                bibleData = bibleData,
+                                loadError = loadError,
                                 onBible = { route = PanasheRoute.Bible }
                             )
-                            PanasheRoute.Bible -> BibleScreen()
-                            PanasheRoute.Communion -> CommunionScreen()
+                            PanasheRoute.Bible -> BibleScreen(bibleData = bibleData, loadError = loadError)
+                            PanasheRoute.Communion -> CommunionScreen(bibleData = bibleData)
                             PanasheRoute.About -> TextPage("About", aboutParagraphs)
                             PanasheRoute.Privacy -> TextPage("Privacy Policy", privacyParagraphs)
                         }
@@ -150,42 +161,49 @@ private fun HeaderAction(label: String) {
 }
 
 @Composable
-private fun DailyReadingScreen(onBible: () -> Unit) {
+private fun DailyReadingScreen(bibleData: BibleData?, loadError: String?, onBible: () -> Unit) {
     Hero(
         eyebrow = "June 1, 2026",
         title = "Daily Reading",
         intro = "A daily portion of Holy Scripture for reading, remembrance, and obedience before God."
     )
 
+    val chapter = bibleData?.johnOne
+    val verses = chapter?.verses?.take(3)
+
     SectionCard {
-        Eyebrow(todayReading.label)
+        Eyebrow("Today's Reading")
         Spacer(Modifier.height(10.dp))
         Text(
-            todayReading.reference,
+            "John 1:1-3",
             color = Ink,
             fontFamily = FontFamily.Serif,
             fontSize = 34.sp,
             lineHeight = 38.sp
         )
         Spacer(Modifier.height(16.dp))
-        todayReading.verses.forEach { verse ->
-            Text(
-                text = verse,
-                color = Ink,
-                fontFamily = FontFamily.Serif,
-                fontSize = 20.sp,
-                lineHeight = 36.sp,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
+        when {
+            loadError != null -> LoadingText(loadError)
+            verses == null -> LoadingText("Loading Scripture...")
+            else -> verses.forEach { verse ->
+                Text(
+                    text = verse.text,
+                    color = Ink,
+                    fontFamily = FontFamily.Serif,
+                    fontSize = 20.sp,
+                    lineHeight = 36.sp,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+            }
         }
     }
 
     SectionCard {
-        Eyebrow(todayReading.contextTitle)
+        Eyebrow("Chapter Context")
         Spacer(Modifier.height(10.dp))
         Text("John 1", color = Ink, fontFamily = FontFamily.Serif, fontSize = 30.sp)
         Spacer(Modifier.height(10.dp))
-        Text(todayReading.context, color = Muted, lineHeight = 24.sp)
+        Text(chapter?.introduction ?: "The opening chapter will appear when bundled Scripture finishes loading.", color = Muted, lineHeight = 24.sp)
         Spacer(Modifier.height(16.dp))
         FlowRow(horizontalArrangement = Arrangement.Center, verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
             PrimaryAction("Read full chapter") {}
@@ -196,7 +214,8 @@ private fun DailyReadingScreen(onBible: () -> Unit) {
 }
 
 @Composable
-private fun BibleScreen() {
+private fun BibleScreen(bibleData: BibleData?, loadError: String?) {
+    val chapter = bibleData?.johnOne
     ReaderToolbar()
     SectionCard {
         Eyebrow("The Gospel According to John")
@@ -204,7 +223,7 @@ private fun BibleScreen() {
         Text("John 1", color = Ink, fontFamily = FontFamily.Serif, fontSize = 52.sp, lineHeight = 56.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(10.dp))
         Text(
-            "The Word made flesh. John beareth witness of him. He calleth his disciples.",
+            chapter?.introduction ?: "Loading the bundled Scripture text.",
             color = Muted,
             fontSize = 13.sp,
             lineHeight = 22.sp,
@@ -212,21 +231,25 @@ private fun BibleScreen() {
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(Modifier.height(26.dp))
-        todayReading.verses.forEachIndexed { index, verse ->
-            Text(
-                text = "${index + 1}  $verse",
-                color = Ink,
-                fontFamily = FontFamily.Serif,
-                fontSize = 20.sp,
-                lineHeight = 36.sp,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
+        when {
+            loadError != null -> LoadingText(loadError)
+            chapter == null -> LoadingText("Loading Scripture...")
+            else -> chapter.verses.forEach { verse ->
+                Text(
+                    text = "${verse.number}  ${verse.text}",
+                    color = Ink,
+                    fontFamily = FontFamily.Serif,
+                    fontSize = 20.sp,
+                    lineHeight = 36.sp,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun CommunionScreen() {
+private fun CommunionScreen(bibleData: BibleData?) {
     var hasOffered by remember { mutableStateOf(false) }
     var selectedTopTab by remember { mutableStateOf("read") }
     var selectedKeptTab by remember { mutableStateOf("today") }
@@ -244,7 +267,9 @@ private fun CommunionScreen() {
         Spacer(Modifier.height(18.dp))
         if (selectedTopTab == "read") {
             Eyebrow("June 1, 2026")
-            Text(todayReading.reference, color = Ink, fontFamily = FontFamily.Serif, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+            Text("John 1:1-3", color = Ink, fontFamily = FontFamily.Serif, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(14.dp))
+            Text(bibleData?.johnOne?.introduction ?: "Loading the chapter context from bundled Scripture.", color = Muted, fontSize = 14.sp, lineHeight = 24.sp)
             Spacer(Modifier.height(14.dp))
             PrimaryAction("Read the full chapter") {}
         } else {
@@ -298,6 +323,11 @@ private fun CommunionScreen() {
         Spacer(Modifier.height(14.dp))
         ArchiveRow(todayCommunion.date, todayCommunion.gathered.reference)
     }
+}
+
+@Composable
+private fun LoadingText(text: String) {
+    Text(text, color = Muted, fontSize = 14.sp, lineHeight = 24.sp)
 }
 
 @Composable
