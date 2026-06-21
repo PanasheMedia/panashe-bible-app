@@ -1,6 +1,7 @@
 package org.panashe.bible
 
 import org.panashe.bible.features.communion.CommunionEntry
+import org.panashe.bible.features.communion.CommunionGenerator
 import org.panashe.bible.features.communion.CommunionView
 import org.panashe.bible.features.communion.KeptCommunion
 import org.panashe.bible.features.reader.DailyReading
@@ -21,13 +22,14 @@ enum class PanasheRoute(val path: String, val title: String) {
  * from the canonical data exported by panashe-bible-shared.
  */
 suspend fun buildCommunionView(data: BibleData): CommunionView {
-    val theme = data.seed.first
-    val gatheredRef = theme.gathered
+    val day = CommunionGenerator(data.manifest, data.seed).communionForToday()
+    val dateLabel = formatDate(day.iso)
+    val gatheredRef = day.gathered
     val gatheredBook = data.book(gatheredRef.book)
     val gatheredChapter = gatheredBook.chapter(gatheredRef.chapter)
 
     val reading = DailyReading(
-        dateLabel = formatDate(data.seed.startIso),
+        dateLabel = dateLabel,
         reference = gatheredRef,
         display = data.displayReference(gatheredRef),
         chapterTitle = "${gatheredBook.name} ${gatheredRef.chapter}",
@@ -43,7 +45,7 @@ suspend fun buildCommunionView(data: BibleData): CommunionView {
         state = "Gathered passage"
     )
 
-    val beneath = theme.offerings.map { ref ->
+    val beneath = day.offerings.map { ref ->
         CommunionEntry(
             reference = ref,
             display = data.displayReference(ref),
@@ -55,7 +57,7 @@ suspend fun buildCommunionView(data: BibleData): CommunionView {
     return CommunionView(
         reading = reading,
         kept = KeptCommunion(
-            date = formatDate(data.seed.startIso),
+            date = dateLabel,
             gathered = gatheredEntry,
             beneath = beneath
         )
