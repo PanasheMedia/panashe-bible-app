@@ -2,7 +2,7 @@
 composeMultiplatform = "1.12.0-alpha02"
 kotlin = "2.3.0"
 kotlinxSerialization = "1.9.0"
-kotlinxDatetime = "0.6.2"
+kotlinxDatetime = "0.7.1"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
