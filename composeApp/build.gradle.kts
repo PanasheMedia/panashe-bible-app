@@ -18,6 +18,7 @@ kotlin {
             baseName = "PanasheBibleShared"
             isStatic = true
             xcf.add(this)
+            binaryOptions["optimizationMode"] = "debug"
         }
     }
 
