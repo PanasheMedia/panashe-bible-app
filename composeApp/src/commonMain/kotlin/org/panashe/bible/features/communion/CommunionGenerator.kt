@@ -6,29 +6,24 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.todayIn
 import org.panashe.bible.BibleManifest
 import org.panashe.bible.CommunionSeed
+import org.panashe.bible.CommunionTheme
 import org.panashe.bible.shared.ScriptureReference
+import org.panashe.bible.shared.SharedConstants
 import org.panashe.bible.shared.SharedRules
 
 /**
- * Derives the Communion for a given date, mirroring panashe-bible-web's
- * communion-seed.js (buildSeededCommunions / referenceFor / generatedReferenceFor)
- * so the app and web render identical days. Each day consumes seven slots
- * (1 gathered + 6 offerings) from the flattened seed reference pool; once the
- * pool is exhausted, references are generated deterministically by walking the
- * flat chapter list at (index * 7 + offset) mod totalChapters.
+ * Derives the Communion for a given date from the bundled pre-seed plan.
+ *
+ * The bundled seed is a proof-of-concept placeholder until submitted Communion
+ * data can be read from a database. Because placeholder data should not invent
+ * "inspired" daily pairings, the generator only uses explicit seed themes. When
+ * the date range is longer than the available themes, it cycles those themes
+ * rather than walking arbitrary Bible chapters.
  */
 class CommunionGenerator(
-    manifest: BibleManifest,
+    @Suppress("UNUSED_PARAMETER") manifest: BibleManifest,
     private val seed: CommunionSeed,
 ) {
-    /** Flattened seed pool: each theme contributes its gathered ref then its offerings. */
-    private val pool: List<ScriptureReference> =
-        seed.themes.flatMap { listOf(it.gathered) + it.offerings }
-
-    /** Every [bookSlug, chapter] pair across the manifest, in canonical order. */
-    private val chapters: List<Pair<String, Int>> =
-        manifest.books.flatMap { book -> (1..book.chapters).map { book.slug to it } }
-
     private val startEpochDay = LocalDate.parse(seed.startIso).toEpochDays()
 
     /** Days from the seed start to [iso] (0 == start date). */
@@ -42,25 +37,20 @@ class CommunionGenerator(
     /** Total number of seeded days, inclusive of start and end. */
     val totalDays: Int get() = dayIndexForIso(seed.endIso) + 1
 
-    private fun generatedReference(index: Int, offset: Int): ScriptureReference {
-        val slot = ((index * 7 + offset) % chapters.size + chapters.size) % chapters.size
-        val (slug, chapter) = chapters[slot]
-        return SharedRules.canonicalReference(book = slug, chapter = chapter, startVerse = 1, endVerse = 1)
-    }
-
-    private fun referenceFor(index: Int, offset: Int): ScriptureReference {
-        val poolIndex = index * 7 + offset
-        return if (poolIndex < pool.size) pool[poolIndex] else generatedReference(index, offset)
+    private fun themeFor(index: Int): CommunionTheme {
+        require(seed.themes.isNotEmpty()) { "Communion seed must include at least one theme." }
+        val themeIndex = ((index % seed.themes.size) + seed.themes.size) % seed.themes.size
+        return seed.themes[themeIndex]
     }
 
     /** The Communion references for [iso], clamped into the seeded range. */
     fun communionForDate(iso: String): CommunionDayRefs {
         val index = dayIndexForIso(iso).coerceIn(0, (totalDays - 1).coerceAtLeast(0))
-        val gathered = referenceFor(index, 0)
-        // Six beneath offerings, de-duplicated like web's uniqueByReference.
-        val offerings = (1..6)
-            .map { referenceFor(index, it) }
+        val theme = themeFor(index)
+        val gathered = theme.gathered
+        val offerings = theme.offerings
             .distinctBy { SharedRules.referenceKey(it) }
+            .take(SharedConstants.KEPT_BENEATH_COUNT)
         return CommunionDayRefs(
             index = index,
             iso = isoForIndex(index),
