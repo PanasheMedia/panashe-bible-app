@@ -40,4 +40,4 @@ data class ArchiveDetail(
     val offerings: List<ArchiveDetailEntry>
 )
 
-data class ArchiveDetailEntry(val reference: String, val text: String)
+data class ArchiveDetailEntry(val reference: String, val text: String, val bookSlug: String, val chapter: Int)

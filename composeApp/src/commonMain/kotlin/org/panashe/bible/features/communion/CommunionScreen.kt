@@ -39,6 +39,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.panashe.bible.BibleData
@@ -58,6 +59,7 @@ fun CommunionScreen(
 ) {
     var showArchiveDialog by remember { mutableStateOf(false) }
     var selectedArchiveIso by remember { mutableStateOf<String?>(null) }
+    var showExplainer by remember { mutableStateOf(false) }
 
     val reading = view?.reading
     // One generator for the archive list; only depends on the bundled data.
@@ -100,7 +102,7 @@ fun CommunionScreen(
             gatheredRef = data.displayReference(day.gathered),
             gatheredText = data.passageTextWithVerseNumbers(day.gathered),
             offerings = day.offerings.map { ref ->
-                ArchiveDetailEntry(data.displayReference(ref), data.passageTextWithVerseNumbers(ref))
+                ArchiveDetailEntry(data.displayReference(ref), data.passageTextWithVerseNumbers(ref), ref.book, ref.chapter)
             }
         )
     }
@@ -109,20 +111,41 @@ fun CommunionScreen(
     CommunionHero()
 
     TabCard {
-        Eyebrow("Today's Communion · ${kept?.date ?: ""}".trimEnd(' ', '·'))
+        DayMarker(kept?.date ?: "")
+        Spacer(Modifier.height(16.dp))
+        Text(
+            "Today's Communion",
+            color = MaterialTheme.colorScheme.onSurface,
+            fontFamily = FontFamily.Serif,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
         Spacer(Modifier.height(8.dp))
         Text(
             "The Scripture readers are bringing today, gathered around the Word.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 13.sp,
-            lineHeight = 21.sp
+            lineHeight = 21.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
         )
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(22.dp))
         if (kept == null) {
             LoadingText("Gathering today's Communion...")
         } else {
             KeptThread(kept, onReadChapter)
         }
+        Spacer(Modifier.height(18.dp))
+        Text(
+            "How Communion is gathered",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 12.sp,
+            textAlign = TextAlign.Center,
+            textDecoration = TextDecoration.Underline,
+            modifier = Modifier.fillMaxWidth().clickable { showExplainer = true }.padding(top = 4.dp)
+        )
     }
 
     // Archive card with responsive grid layout
@@ -167,10 +190,14 @@ fun CommunionScreen(
     if (showArchiveDialog && archiveDetail != null) {
         ArchiveDetailDialog(
             detail = archiveDetail!!,
+            onReadChapter = onReadChapter,
             onDismiss = { showArchiveDialog = false }
         )
     }
 
+    if (showExplainer) {
+        ExplainerDialog(onDismiss = { showExplainer = false })
+    }
 }
 
 /** Serif section heading shared across the Communion cards (web .daily-card h2 / .communion-section-title). */
@@ -189,60 +216,36 @@ private fun CardHeading(text: String) {
 // --- Archive Detail Dialog ---
 
 @Composable
-fun ArchiveDetailDialog(detail: ArchiveDetail, onDismiss: () -> Unit) {
+fun ArchiveDetailDialog(detail: ArchiveDetail, onReadChapter: (String, Int) -> Unit, onDismiss: () -> Unit) {
     PanasheDialog(
         onDismissRequest = onDismiss,
         eyebrow = "Past Communion",
         title = detail.dateLabel
     ) {
         LazyColumn(modifier = Modifier.padding(25.dp)) {
-            // Gathered passage reference
-            item {
-                Text(
-                    detail.gatheredRef,
-                    color = MaterialTheme.colorScheme.secondary,
-                    fontFamily = FontFamily.Serif,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    lineHeight = 28.sp
-                )
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    detail.gatheredText,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontFamily = FontFamily.Serif,
-                    fontSize = 16.sp,
-                    lineHeight = 26.sp
-                )
-                Spacer(Modifier.height(16.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    "RELATED CHAPTERS",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = 0.8.sp
-                )
-                Spacer(Modifier.height(8.dp))
-            }
-            // Offerings
+            // The day's gathered verses (the reading itself is shown on the Daily screen).
             items(detail.offerings) { offering ->
-                Column(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+                Column(modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp)) {
                     Text(
                         offering.reference,
                         color = MaterialTheme.colorScheme.secondary,
-                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Serif,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold
                     )
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(8.dp))
                     Text(
                         offering.text,
                         color = MaterialTheme.colorScheme.onSurface,
                         fontFamily = FontFamily.Serif,
-                        fontSize = 14.sp,
-                        lineHeight = 22.sp
+                        fontSize = 15.sp,
+                        lineHeight = 25.sp
                     )
+                    Spacer(Modifier.height(10.dp))
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Spacer(Modifier.weight(1f))
+                        ReadChapterLink(offering.bookSlug, offering.chapter) { b, c -> onReadChapter(b, c); onDismiss() }
+                    }
                 }
             }
         }
@@ -301,17 +304,13 @@ private fun GatheredPassage(entry: CommunionEntry, onReadChapter: (String, Int) 
             .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.02f), RoundedCornerShape(4.dp))
             .padding(20.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                entry.display,
-                color = MaterialTheme.colorScheme.secondary,
-                fontFamily = FontFamily.Serif,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(Modifier.weight(1f))
-            ReadChapterLink(entry.reference.book, entry.reference.chapter, onReadChapter)
-        }
+        Text(
+            entry.display,
+            color = MaterialTheme.colorScheme.secondary,
+            fontFamily = FontFamily.Serif,
+            fontSize = 17.sp,
+            fontWeight = FontWeight.SemiBold
+        )
         if (entry.preview.isNotBlank()) {
             Spacer(Modifier.height(10.dp))
             Text(
@@ -322,6 +321,11 @@ private fun GatheredPassage(entry: CommunionEntry, onReadChapter: (String, Int) 
                 lineHeight = 26.sp
             )
         }
+        Spacer(Modifier.height(12.dp))
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Spacer(Modifier.weight(1f))
+            ReadChapterLink(entry.reference.book, entry.reference.chapter, onReadChapter)
+        }
     }
 }
 
@@ -329,17 +333,13 @@ private fun GatheredPassage(entry: CommunionEntry, onReadChapter: (String, Int) 
 @Composable
 private fun KeptOffering(entry: CommunionEntry, onReadChapter: (String, Int) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 16.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                entry.display,
-                color = MaterialTheme.colorScheme.secondary,
-                fontFamily = FontFamily.Serif,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(Modifier.weight(1f))
-            ReadChapterLink(entry.reference.book, entry.reference.chapter, onReadChapter)
-        }
+        Text(
+            entry.display,
+            color = MaterialTheme.colorScheme.secondary,
+            fontFamily = FontFamily.Serif,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold
+        )
         if (entry.preview.isNotBlank()) {
             Spacer(Modifier.height(6.dp))
             Text(
@@ -348,6 +348,11 @@ private fun KeptOffering(entry: CommunionEntry, onReadChapter: (String, Int) -> 
                 fontSize = 13.sp,
                 lineHeight = 22.sp
             )
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Spacer(Modifier.weight(1f))
+            ReadChapterLink(entry.reference.book, entry.reference.chapter, onReadChapter)
         }
     }
 }
@@ -364,6 +369,48 @@ private fun ReadChapterLink(bookSlug: String, chapter: Int, onReadChapter: (Stri
             .clip(RoundedCornerShape(4.dp))
             .clickable { onReadChapter(bookSlug, chapter) }
             .padding(horizontal = 8.dp, vertical = 4.dp)
+    )
+}
+
+/** Centered day-marker — an elegant "tab" between days. */
+@Composable
+private fun DayMarker(date: String) {
+    if (date.isBlank()) return
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outline)
+        Text(
+            date.uppercase(),
+            color = MaterialTheme.colorScheme.secondary,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 1.2.sp,
+            modifier = Modifier.padding(horizontal = 14.dp)
+        )
+        HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outline)
+    }
+}
+
+/** "How Communion is gathered" — context for first-time readers. */
+@Composable
+private fun ExplainerDialog(onDismiss: () -> Unit) {
+    PanasheDialog(onDismissRequest = onDismiss, eyebrow = "About Communion", title = "How it is gathered") {
+        Column(modifier = Modifier.padding(25.dp)) {
+            ExplainerParagraph("Each day opens with a short reading — three verses of Scripture. After reading, anyone may answer with Scripture: one passage of one to three verses that connects with the reading.")
+            ExplainerParagraph("Through the day those offerings gather as Today's Communion — the verses readers are bringing, drawn together around the Word. No commentary, no names, no counts; only the passages themselves.")
+            ExplainerParagraph("Tomorrow's reading: at the day's turn, an overlooked passage becomes the next day's reading, so quieter connections keep surfacing and the reading never grows stale.")
+            ExplainerParagraph("Each settled day is kept in Past Communion, so nothing gathered is forgotten.")
+        }
+    }
+}
+
+@Composable
+private fun ExplainerParagraph(text: String) {
+    Text(
+        text,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        fontSize = 14.sp,
+        lineHeight = 24.sp,
+        modifier = Modifier.padding(bottom = 14.dp)
     )
 }
 
