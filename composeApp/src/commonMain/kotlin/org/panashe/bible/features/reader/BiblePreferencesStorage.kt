@@ -17,7 +17,9 @@ data class ReaderPreferences(
     val fontLabel: String = "Source Serif",
     val textSizePercent: Float = 100f,
     val showVerseNumbers: Boolean = true,
-    val lineByLine: Boolean = false
+    val lineByLine: Boolean = false,
+    val audioSpeed: Float = 1f,
+    val audioVoiceIndex: Int = 0
 ) {
     val textSizeMultiplier: Float get() = textSizePercent / 100f
     val baseFontSizeSp: Float get() = 18f * textSizeMultiplier
@@ -56,13 +58,17 @@ class MutableReaderPreferences(
     var textSizePercent by mutableFloatStateOf(initial.textSizePercent)
     var showVerseNumbers by mutableStateOf(initial.showVerseNumbers)
     var lineByLine by mutableStateOf(initial.lineByLine)
+    var audioSpeed by mutableFloatStateOf(initial.audioSpeed)
+    var audioVoiceIndex by mutableStateOf(initial.audioVoiceIndex)
 
     fun snapshot() = ReaderPreferences(
         fontFamily = fontFamily,
         fontLabel = fontLabel,
         textSizePercent = textSizePercent,
         showVerseNumbers = showVerseNumbers,
-        lineByLine = lineByLine
+        lineByLine = lineByLine,
+        audioSpeed = audioSpeed,
+        audioVoiceIndex = audioVoiceIndex
     )
 
     fun increaseTextSize() { textSizePercent = (textSizePercent + 10f).coerceAtMost(200f) }
@@ -75,4 +81,6 @@ class MutableReaderPreferences(
 
     fun toggleVerseNumbers() { showVerseNumbers = !showVerseNumbers }
     fun toggleLineByLine() { lineByLine = !lineByLine }
+    fun updateAudioSpeed(speed: Float) { audioSpeed = speed.coerceIn(0.8f, 1.2f) }
+    fun updateAudioVoice(index: Int) { audioVoiceIndex = index.coerceAtLeast(0) }
 }

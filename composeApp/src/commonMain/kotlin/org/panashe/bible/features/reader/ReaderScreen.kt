@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -47,6 +48,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
@@ -75,6 +77,7 @@ import org.panashe.bible.ui.components.PrimaryAction
 import org.panashe.bible.ui.components.SecondaryAction
 import org.panashe.bible.ui.components.SectionCard
 import androidx.compose.ui.platform.LocalClipboardManager
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -90,7 +93,7 @@ fun DailyReadingScreen(view: CommunionView?, loadError: String?, onBible: () -> 
     )
 
     // Single passage card — mirrors web .daily-card
-    SectionCard {
+    SectionCard(entranceDelayMillis = 80) {
         Eyebrow(reading?.dateLabel ?: "Today's Reading")
         Spacer(Modifier.height(10.dp))
         Text(
@@ -192,6 +195,7 @@ fun BibleScreen(
     // TTS state
     val ttsEngine = remember { createTtsEngine() }
     var isAudioPlaying by remember { mutableStateOf(false) }
+    var isAudioLoading by remember { mutableStateOf(false) }
 
     val previousChapter = if (chapter > 1) chapter - 1 else null
     val nextChapter = if (bookSummary != null && chapter < bookSummary.chapters) chapter + 1 else null
@@ -217,7 +221,7 @@ fun BibleScreen(
         onTranslationClick = { showTranslationInfo = true }
     )
 
-    SectionCard {
+    SectionCard(entranceDelayMillis = 80) {
         // Section eyebrow (Old/New Testament)
         val section = bookSummary?.section
         if (section != null) {
@@ -263,22 +267,41 @@ fun BibleScreen(
             Spacer(Modifier.width(12.dp))
             IconButton(
                 onClick = {
-                    if (isAudioPlaying) {
+                    if (isAudioPlaying || isAudioLoading) {
                         ttsEngine.stop()
                         isAudioPlaying = false
+                        isAudioLoading = false
                     } else {
                         val text = verses.joinToString(" ") { it.text }
+                        val snapshot = prefs.snapshot()
+                        ttsEngine.setSpeed(snapshot.audioSpeed)
+                        ttsEngine.selectedVoiceIndex = snapshot.audioVoiceIndex
+                        isAudioLoading = true
                         ttsEngine.speak(text)
-                        isAudioPlaying = true
+                        coroutineScope.launch {
+                            delay(350)
+                            if (isAudioLoading) {
+                                isAudioLoading = false
+                                isAudioPlaying = true
+                            }
+                        }
                     }
                 }
             ) {
-                Icon(
-                    imageVector = PlayIcon,
-                    contentDescription = if (isAudioPlaying) "Stop audio" else "Listen to chapter",
-                    tint = Ink,
-                    modifier = Modifier.size(16.dp)
-                )
+                if (isAudioLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = Ink
+                    )
+                } else {
+                    Icon(
+                        imageVector = PlayIcon,
+                        contentDescription = if (isAudioPlaying) "Stop audio" else "Listen to chapter",
+                        tint = Ink,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
             }
         }
 
@@ -333,40 +356,49 @@ fun BibleScreen(
             else -> {
                 // Render verses with prefs applied
                 val snapshot = prefs.snapshot()
-                verses.forEach { verse ->
-                    if (snapshot.showVerseNumbers) {
-                        val verseAnnotated = buildAnnotatedString {
-                            withStyle(SpanStyle(
-                                fontSize = (11f * snapshot.textSizeMultiplier).sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Accent
-                            )) {
-                                append(" ${verse.number} ")
-                            }
-                            withStyle(SpanStyle(
+                if (snapshot.lineByLine) {
+                    verses.forEach { verse ->
+                        if (snapshot.showVerseNumbers) {
+                            val verseAnnotated = buildAnnotatedVerse(verse, snapshot)
+                            Text(
+                                text = verseAnnotated,
+                                color = Ink,
+                                lineHeight = snapshot.lineHeightSp.sp,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                        } else {
+                            Text(
+                                text = verse.text,
+                                color = Ink,
                                 fontFamily = snapshot.fontFamily,
                                 fontSize = snapshot.baseFontSizeSp.sp,
-                                color = Ink
-                            )) {
-                                append(verse.text)
-                            }
+                                lineHeight = snapshot.lineHeightSp.sp,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
                         }
-                        Text(
-                            text = verseAnnotated,
-                            color = Ink,
-                            lineHeight = snapshot.lineHeightSp.sp,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                    } else {
-                        Text(
-                            text = verse.text,
-                            color = Ink,
-                            fontFamily = snapshot.fontFamily,
-                            fontSize = snapshot.baseFontSizeSp.sp,
-                            lineHeight = snapshot.lineHeightSp.sp,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
                     }
+                } else {
+                    Text(
+                        text = buildAnnotatedString {
+                            verses.forEachIndexed { index, verse ->
+                                if (snapshot.showVerseNumbers) {
+                                    append(buildAnnotatedVerse(verse, snapshot))
+                                } else {
+                                    withStyle(SpanStyle(
+                                        fontFamily = snapshot.fontFamily,
+                                        fontSize = snapshot.baseFontSizeSp.sp,
+                                        color = Ink
+                                    )) {
+                                        append(verse.text)
+                                    }
+                                }
+                                if (index != verses.lastIndex) append(" ")
+                            }
+                        },
+                        color = Ink,
+                        lineHeight = snapshot.lineHeightSp.sp,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
                 }
 
                 // Chapter navigation (Previous/Next)
@@ -441,6 +473,34 @@ fun BibleScreen(
     LaunchedEffect(bookSlug, chapter) {
         ttsEngine.stop()
         isAudioPlaying = false
+        isAudioLoading = false
+    }
+
+    LaunchedEffect(prefs.audioSpeed, prefs.audioVoiceIndex) {
+        val snapshot = prefs.snapshot()
+        ttsEngine.setSpeed(snapshot.audioSpeed)
+        ttsEngine.selectedVoiceIndex = snapshot.audioVoiceIndex
+    }
+}
+
+private fun buildAnnotatedVerse(
+    verse: BibleVerse,
+    snapshot: ReaderPreferences
+): AnnotatedString = buildAnnotatedString {
+    withStyle(SpanStyle(
+        fontSize = (11f * snapshot.textSizeMultiplier).sp,
+        fontWeight = FontWeight.SemiBold,
+        color = Accent,
+        baselineShift = BaselineShift.Superscript
+    )) {
+        append("${verse.number} ")
+    }
+    withStyle(SpanStyle(
+        fontFamily = snapshot.fontFamily,
+        fontSize = snapshot.baseFontSizeSp.sp,
+        color = Ink
+    )) {
+        append(verse.text)
     }
 }
 

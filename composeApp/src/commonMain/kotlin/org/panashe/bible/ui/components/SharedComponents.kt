@@ -2,18 +2,26 @@ package org.panashe.bible.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,15 +34,21 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import org.panashe.bible.ui.Accent
 import org.panashe.bible.ui.Ink
 import org.panashe.bible.ui.Line
@@ -77,15 +91,43 @@ fun Hero(eyebrow: String?, title: String, intro: String) {
 }
 
 @Composable
-fun SectionCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, Line),
-        shape = RoundedCornerShape(4.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        modifier = modifier.fillMaxWidth().padding(bottom = 30.dp)
-    ) {
-        Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 26.dp), content = content)
+fun SectionCard(
+    modifier: Modifier = Modifier,
+    entranceDelayMillis: Int = 0,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    StaggeredEntrance(delayMillis = entranceDelayMillis) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, Line),
+            shape = RoundedCornerShape(4.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            modifier = modifier.fillMaxWidth().padding(bottom = 30.dp)
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 26.dp), content = content)
+        }
+    }
+}
+
+@Composable
+fun StaggeredEntrance(delayMillis: Int = 0, content: @Composable () -> Unit) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(delayMillis) {
+        if (delayMillis > 0) delay(delayMillis.toLong())
+        visible = true
+    }
+    val alpha by animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = tween(260),
+        label = "entrance-alpha"
+    )
+    val offsetY by animateDpAsState(
+        targetValue = if (visible) 0.dp else 10.dp,
+        animationSpec = tween(260),
+        label = "entrance-offset"
+    )
+    Box(modifier = Modifier.alpha(alpha).offset(y = offsetY)) {
+        content()
     }
 }
 
@@ -102,11 +144,13 @@ fun Eyebrow(text: String) {
 
 @Composable
 fun PrimaryAction(label: String, onClick: () -> Unit) {
+    val interactionSource = remember { MutableInteractionSource() }
     Button(
         onClick = onClick,
+        interactionSource = interactionSource,
         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(3.dp),
-        modifier = Modifier.height(44.dp)
+        modifier = Modifier.height(44.dp).pressScale(interactionSource)
     ) {
         Text(label, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
     }
@@ -116,7 +160,14 @@ fun PrimaryAction(label: String, onClick: () -> Unit) {
 fun ToastBar(message: String, visible: Boolean, modifier: Modifier = Modifier) {
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(animationSpec = tween(300)),
+        enter = fadeIn(animationSpec = tween(250)) + slideInVertically(
+            animationSpec = tween(250),
+            initialOffsetY = { it / 2 }
+        ),
+        exit = fadeOut(animationSpec = tween(180)) + slideOutVertically(
+            animationSpec = tween(180),
+            targetOffsetY = { it / 2 }
+        ),
         modifier = modifier
     ) {
         Box(
@@ -142,13 +193,26 @@ fun ToastBar(message: String, visible: Boolean, modifier: Modifier = Modifier) {
 
 @Composable
 fun SecondaryAction(label: String, onClick: () -> Unit) {
+    val interactionSource = remember { MutableInteractionSource() }
     OutlinedButton(
         onClick = onClick,
+        interactionSource = interactionSource,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)),
         shape = RoundedCornerShape(3.dp),
         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
-        modifier = Modifier.height(44.dp)
+        modifier = Modifier.height(44.dp).pressScale(interactionSource)
     ) {
         Text(label, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
     }
+}
+
+@Composable
+fun Modifier.pressScale(interactionSource: MutableInteractionSource): Modifier {
+    val pressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.97f else 1f,
+        animationSpec = tween(100),
+        label = "press-scale"
+    )
+    return this.scale(scale)
 }

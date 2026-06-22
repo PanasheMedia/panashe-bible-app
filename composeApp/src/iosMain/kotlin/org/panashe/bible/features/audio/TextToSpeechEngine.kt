@@ -8,7 +8,7 @@ class IosTtsEngine : TtsEngine {
     private var speechRate: Float = 0.5f
     private var _isSpeaking: Boolean = false
     private var _selectedVoiceIndex: Int = 0
-    private val _voices = mutableListOf<String>()
+    private val _voices = mutableListOf("Default voice")
 
     override val availableVoices: List<String> get() = _voices.toList()
     override var selectedVoiceIndex: Int

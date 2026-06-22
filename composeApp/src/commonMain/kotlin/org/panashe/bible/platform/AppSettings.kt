@@ -9,7 +9,9 @@ data class PersistedReaderPrefs(
     val fontLabel: String = "Source Serif",
     val textSizePercent: Float = 100f,
     val showVerseNumbers: Boolean = true,
-    val lineByLine: Boolean = false
+    val lineByLine: Boolean = false,
+    val audioSpeed: Float = 1f,
+    val audioVoiceIndex: Int = 0
 )
 
 @Serializable

@@ -105,6 +105,8 @@ fun PanasheApp(
                 textSizePercent = prefs.textSizePercent
                 showVerseNumbers = prefs.showVerseNumbers
                 lineByLine = prefs.lineByLine
+                audioSpeed = prefs.audioSpeed
+                audioVoiceIndex = prefs.audioVoiceIndex
             }
         }
     }
@@ -243,7 +245,9 @@ fun PanasheApp(
                                     fontLabel = snapshot.fontLabel,
                                     textSizePercent = snapshot.textSizePercent,
                                     showVerseNumbers = snapshot.showVerseNumbers,
-                                    lineByLine = snapshot.lineByLine
+                                    lineByLine = snapshot.lineByLine,
+                                    audioSpeed = snapshot.audioSpeed,
+                                    audioVoiceIndex = snapshot.audioVoiceIndex
                                 ))
                             }
                         }

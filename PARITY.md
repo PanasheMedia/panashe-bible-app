@@ -73,19 +73,19 @@ Track visual and behavioral parity between the Compose Multiplatform app and the
 
 ## §6 Polish
 
-- `[ ]` Card entrance stagger animation (not yet)
+- `[x]` Card entrance stagger animation
 - `[x]` Loading pulse animation (alpha pulse on LoadingText)
-- `[ ]` Toast notification with slide-up (in progress — existing Surface toast)
-- `[ ]` Button press-scale on tap (modifier stubbed)
-- `[ ]` Archive item enter animation (staggered)
+- `[x]` Toast notification with slide-up
+- `[x]` Button press-scale on tap
+- `[x]` Archive item enter animation (staggered)
 
 ## Audio
 
 - `[x]` TTS engine interface (expect/actual for Android/iOS)
 - `[x]` Play/pause button on chapter header
-- `[ ]` Audio spinner during loading
-- `[ ]` Settings: voice selector
-- `[ ]` Settings: speed control (.8x, 1x, 1.2x)
+- `[x]` Audio spinner during loading
+- `[x]` Settings: voice selector
+- `[x]` Settings: speed control (.8x, 1x, 1.2x)
 
 ---
 

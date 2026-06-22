@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.panashe.bible.features.audio.createTtsEngine
 import org.panashe.bible.ui.*
 import org.panashe.bible.ui.components.PanasheDialog
 
@@ -26,6 +27,14 @@ fun SettingsDialog(
     onDismissRequest: () -> Unit
 ) {
     val snapshot = prefs.snapshot()
+    val ttsEngine = remember { createTtsEngine() }
+    val voices = ttsEngine.availableVoices.ifEmpty { listOf("Default voice") }
+    val selectedVoice = snapshot.audioVoiceIndex.coerceIn(voices.indices)
+
+    LaunchedEffect(snapshot.audioSpeed, selectedVoice) {
+        ttsEngine.setSpeed(snapshot.audioSpeed)
+        ttsEngine.selectedVoiceIndex = selectedVoice
+    }
 
     PanasheDialog(
         onDismissRequest = onDismissRequest,
@@ -101,6 +110,26 @@ fun SettingsDialog(
             HorizontalDivider(color = Line)
             Spacer(modifier = Modifier.height(16.dp))
 
+            SettingRowHeader("Audio", "Choose how Scripture is read aloud.")
+            Spacer(modifier = Modifier.height(12.dp))
+
+            AudioVoiceRow(
+                voiceName = voices[selectedVoice],
+                onNextVoice = {
+                    val next = if (selectedVoice == voices.lastIndex) 0 else selectedVoice + 1
+                    prefs.updateAudioVoice(next)
+                }
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            AudioSpeedRow(
+                selectedSpeed = snapshot.audioSpeed,
+                onSpeedSelected = { prefs.updateAudioSpeed(it) }
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            HorizontalDivider(color = Line)
+            Spacer(modifier = Modifier.height(16.dp))
+
             SettingRowHeader("Reading font", "Choose the typeface used for Scripture.")
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -121,6 +150,64 @@ fun SettingsDialog(
                 }
                 FontOption("Atkinson Hyperlegible", "Accessible", snapshot.fontLabel == "Atkinson Hyperlegible") {
                     prefs.setFont("Atkinson Hyperlegible", atkinsonFont)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AudioVoiceRow(voiceName: String, onNextVoice: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
+            Text("Voice", color = Ink, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Spacer(Modifier.height(2.dp))
+            Text(voiceName, color = Muted, fontSize = 12.sp, lineHeight = 16.sp)
+        }
+        OutlinedButton(
+            onClick = onNextVoice,
+            shape = RoundedCornerShape(3.dp),
+            border = BorderStroke(1.dp, Line),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = Ink)
+        ) {
+            Text("Change", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+@Composable
+fun AudioSpeedRow(selectedSpeed: Float, onSpeedSelected: (Float) -> Unit) {
+    val options = listOf(0.8f to ".8x", 1f to "1x", 1.2f to "1.2x")
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
+            Text("Speed", color = Ink, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Spacer(Modifier.height(2.dp))
+            Text("Set the chapter audio pace.", color = Muted, fontSize = 12.sp, lineHeight = 16.sp)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            options.forEach { (speed, label) ->
+                val selected = kotlin.math.abs(selectedSpeed - speed) < 0.01f
+                Surface(
+                    color = if (selected) Soft else Color.Transparent,
+                    shape = RoundedCornerShape(3.dp),
+                    border = BorderStroke(1.dp, if (selected) Accent else Line),
+                    modifier = Modifier.clickable { onSpeedSelected(speed) }
+                ) {
+                    Text(
+                        label,
+                        color = Ink,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+                    )
                 }
             }
         }

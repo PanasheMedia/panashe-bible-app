@@ -63,11 +63,12 @@ import org.panashe.bible.ui.Muted
 import org.panashe.bible.ui.Soft
 import org.panashe.bible.ui.SurfaceColor
 import org.panashe.bible.ui.components.Eyebrow
-import org.panashe.bible.ui.components.Eyebrow
 import org.panashe.bible.ui.components.LoadingText
 import org.panashe.bible.ui.components.PanasheDialog
 import org.panashe.bible.ui.components.PrimaryAction
 import org.panashe.bible.ui.components.SectionCard
+import org.panashe.bible.ui.components.StaggeredEntrance
+import org.panashe.bible.ui.components.ToastBar
 import org.panashe.bible.platform.AppSettings
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.Clock
@@ -234,16 +235,18 @@ fun CommunionScreen(
                         reference = kept.gathered.display,
                         count = kept.beneath.size,
                         isToday = true,
+                        entranceDelayMillis = 240,
                         modifier = Modifier.widthIn(min = 190.dp, max = 380.dp).weight(1f)
                     )
                 }
                 // Previous days
-                archiveEntries.forEach { entry ->
+                archiveEntries.forEachIndexed { index, entry ->
                     ArchiveItem(
                         date = entry.dateLabel,
                         reference = entry.reference,
                         count = entry.offerings.size,
                         isToday = false,
+                        entranceDelayMillis = 300 + index * 50,
                         modifier = Modifier.widthIn(min = 190.dp, max = 380.dp).weight(1f)
                             .clickable {
                                 selectedArchiveIso = entry.iso
@@ -269,21 +272,7 @@ fun CommunionScreen(
             kotlinx.coroutines.delay(3000)
             showOfferToast = false
         }
-        Surface(
-            color = Accent,
-            shape = RoundedCornerShape(8.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 8.dp)
-        ) {
-            Text(
-                "Your offering has been received for today.",
-                color = SurfaceColor,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-            )
-        }
+        ToastBar("Your offering has been received for today.", visible = showOfferToast)
     }
 }
 
@@ -737,18 +726,20 @@ fun RedditComment(entry: CommunionEntry) {
 
 @Composable
 fun TopCard(content: @Composable ColumnScope.() -> Unit) {
-    Surface(
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, Line),
-        shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier
-                .border(2.dp, Accent, RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                .padding(horizontal = 24.dp, vertical = 26.dp),
-            content = content
-        )
+    StaggeredEntrance(delayMillis = 80) {
+        Surface(
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, Line),
+            shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier
+                    .border(2.dp, Accent, RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                    .padding(horizontal = 24.dp, vertical = 26.dp),
+                content = content
+            )
+        }
     }
 }
 
@@ -756,16 +747,18 @@ fun TopCard(content: @Composable ColumnScope.() -> Unit) {
 
 @Composable
 fun TabCard(content: @Composable ColumnScope.() -> Unit) {
-    Surface(
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, Line),
-        shape = RoundedCornerShape(bottomStart = 4.dp, bottomEnd = 4.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 26.dp),
-            content = content
-        )
+    StaggeredEntrance(delayMillis = 140) {
+        Surface(
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, Line),
+            shape = RoundedCornerShape(bottomStart = 4.dp, bottomEnd = 4.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 26.dp),
+                content = content
+            )
+        }
     }
 }
 
@@ -784,50 +777,71 @@ fun ArchiveGrid(communion: KeptCommunion) {
 
 @Composable
 fun ArchiveItem(date: String, reference: String, count: Int, isToday: Boolean, modifier: Modifier = Modifier) {
+    ArchiveItem(
+        date = date,
+        reference = reference,
+        count = count,
+        isToday = isToday,
+        entranceDelayMillis = 0,
+        modifier = modifier
+    )
+}
+
+@Composable
+fun ArchiveItem(
+    date: String,
+    reference: String,
+    count: Int,
+    isToday: Boolean,
+    entranceDelayMillis: Int,
+    modifier: Modifier = Modifier
+) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
 
-    Surface(
-        color = if (isHovered) Color(0x08000000) else MaterialTheme.colorScheme.surface,
-        border = BorderStroke(
-            1.dp,
-            if (isToday || isHovered) Accent else Line
-        ),
-        shape = RoundedCornerShape(4.dp),
-        modifier = modifier.hoverable(interactionSource)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(date, color = Muted, fontSize = 10.sp, lineHeight = 14.sp)
-                if (isToday) {
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        "TODAY",
-                        color = androidx.compose.ui.graphics.Color.White,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.4.sp,
-                        modifier = Modifier
-                            .background(Accent, RoundedCornerShape(3.dp))
-                            .padding(horizontal = 6.dp, vertical = 1.dp)
-                    )
+    StaggeredEntrance(delayMillis = entranceDelayMillis) {
+        Surface(
+            color = if (isHovered) Color(0x08000000) else MaterialTheme.colorScheme.surface,
+            border = BorderStroke(
+                1.dp,
+                if (isToday || isHovered) Accent else Line
+            ),
+            shape = RoundedCornerShape(4.dp),
+            modifier = modifier.hoverable(interactionSource)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(date, color = Muted, fontSize = 10.sp, lineHeight = 14.sp)
+                    if (isToday) {
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            "TODAY",
+                            color = androidx.compose.ui.graphics.Color.White,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.4.sp,
+                            modifier = Modifier
+                                .background(Accent, RoundedCornerShape(3.dp))
+                                .padding(horizontal = 6.dp, vertical = 1.dp)
+                        )
+                    }
                 }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    reference,
+                    color = Ink,
+                    fontFamily = FontFamily.Serif,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "$count kept beneath",
+                    color = Muted,
+                    fontSize = 10.sp,
+                    lineHeight = 14.sp
+                )
             }
-            Spacer(Modifier.height(4.dp))
-            Text(
-                reference,
-                color = Ink,
-                fontFamily = FontFamily.Serif,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                "$count kept beneath",
-                color = Muted,
-                fontSize = 10.sp,
-                lineHeight = 14.sp
-            )
         }
     }
 }

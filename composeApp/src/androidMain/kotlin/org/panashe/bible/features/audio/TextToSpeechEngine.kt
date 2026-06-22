@@ -6,8 +6,27 @@ import android.speech.tts.UtteranceProgressListener
 import java.util.Locale
 
 actual fun createTtsEngine(context: Any?): TtsEngine {
-    require(context is Context) { "AndroidTtsEngine needs an Android Context" }
-    return AndroidTtsEngine(context)
+    if (context is Context) {
+        return AndroidTtsHolder.getOrCreate(context.applicationContext)
+    }
+    return AndroidTtsHolder.current ?: NoopTtsEngine
+}
+
+private object AndroidTtsHolder {
+    var current: TtsEngine? = null
+        private set
+
+    fun getOrCreate(context: Context): TtsEngine =
+        current ?: AndroidTtsEngine(context).also { current = it }
+}
+
+private object NoopTtsEngine : TtsEngine {
+    override fun speak(text: String) = Unit
+    override fun stop() = Unit
+    override fun setSpeed(rate: Float) = Unit
+    override val isSpeaking: Boolean = false
+    override val availableVoices: List<String> = listOf("Default voice")
+    override var selectedVoiceIndex: Int = 0
 }
 
 class AndroidTtsEngine(context: Context) : TtsEngine {
@@ -22,7 +41,7 @@ class AndroidTtsEngine(context: Context) : TtsEngine {
     override var selectedVoiceIndex: Int
         get() = _selectedVoiceIndex
         set(value) {
-            _selectedVoiceIndex = value.coerceIn(0, _voices.size - 1)
+            _selectedVoiceIndex = if (_voices.isEmpty()) 0 else value.coerceIn(0, _voices.size - 1)
             applyVoice()
         }
 
