@@ -3,6 +3,8 @@ package org.panashe.bible.network
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.request.get
+import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
@@ -29,6 +31,26 @@ data class OfferResponse(
     val alreadyOffered: Boolean = false,
 )
 
+/** A Scripture reference as returned by the API (display name + slug, no counts). */
+@Serializable
+data class WireRef(
+    val book: String,
+    val slug: String,
+    val chapter: Int,
+    val start: Int,
+    val end: Int,
+)
+
+/** The day's reading + witness gathered live by the server (counts are never sent). */
+@Serializable
+data class CommunionResponse(
+    val date: String,
+    val dateLabel: String = "",
+    val reading: WireRef,
+    val commonWitness: List<WireRef> = emptyList(),
+    val hiddenWitness: List<WireRef> = emptyList(),
+)
+
 /**
  * Thin client for the Panashe Bible API. The Ktor engine is selected
  * automatically per platform (Darwin on iOS, OkHttp on Android).
@@ -41,6 +63,12 @@ class CommunionApi(
         client.post("$baseUrl/communion/offer") {
             contentType(ContentType.Application.Json)
             setBody(request)
+        }.body()
+
+    /** Today's reading + the witness gathered live by the server. */
+    suspend fun getCommunion(date: String): CommunionResponse =
+        client.get("$baseUrl/communion") {
+            parameter("date", date)
         }.body()
 
     companion object {

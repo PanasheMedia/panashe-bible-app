@@ -1,16 +1,21 @@
 package org.panashe.bible.features.communion
 
 import org.panashe.bible.BibleData
+import org.panashe.bible.features.reader.DailyReading
 import org.panashe.bible.network.CommunionApi
+import org.panashe.bible.network.CommunionResponse
 import org.panashe.bible.network.OfferRequest
+import org.panashe.bible.network.WireRef
+import org.panashe.bible.shared.ScriptureReference
 
 /**
  * Communion source backed by the shared API (Cloudflare Worker + D1).
  *
- * Reads delegate to [delegate] (the bundled seed): today's reading and kept
- * Communion are computed locally from the shared rules, which produce the same
- * result the server does — so reads stay instant and work offline. The API is
- * used for the write path: submitting reader offerings to the shared backend.
+ * Today's reading and the gathered witness (Common + Hidden) are fetched live
+ * from the server, so every reader sees the same thing the web does — gathered
+ * from real offerings, with counts hidden. Verse *text* is still resolved from
+ * the bundled corpus. If the API is unreachable, reads fall back to [delegate]
+ * (the bundled seed) so the screen always has something to show.
  */
 class RemoteCommunionRepository(
     private val clientId: String,
@@ -18,7 +23,15 @@ class RemoteCommunionRepository(
     private val api: CommunionApi = CommunionApi(),
 ) : CommunionRepository {
 
-    override suspend fun todayView(): CommunionView = delegate.todayView()
+    override suspend fun todayView(): CommunionView {
+        val data = delegate.bibleData()
+        return try {
+            val response = api.getCommunion(CommunionGenerator.todayIso())
+            buildViewFromApi(data, response)
+        } catch (_: Exception) {
+            delegate.todayView() // offline → bundled seed
+        }
+    }
 
     override suspend fun bibleData(): BibleData = delegate.bibleData()
 
@@ -40,4 +53,46 @@ class RemoteCommunionRepository(
             )
         )
     }
+
+    private suspend fun buildViewFromApi(data: BibleData, response: CommunionResponse): CommunionView {
+        suspend fun entry(wire: WireRef): CommunionEntry {
+            val reference = wire.toReference()
+            return CommunionEntry(
+                reference = reference,
+                display = data.displayReference(reference),
+                preview = data.passageText(reference),
+                state = "",
+            )
+        }
+
+        val readingRef = response.reading.toReference()
+        val readingBook = data.book(response.reading.slug)
+        val readingChapter = readingBook.chapter(response.reading.chapter)
+        val reading = DailyReading(
+            dateLabel = response.dateLabel,
+            reference = readingRef,
+            display = data.displayReference(readingRef),
+            chapterTitle = "${readingBook.name} ${response.reading.chapter}",
+            chapterIntro = readingChapter?.introduction ?: readingBook.introduction,
+            verses = readingChapter?.verseRange(response.reading.start, response.reading.end).orEmpty(),
+            chapterVerses = readingChapter?.verses.orEmpty(),
+        )
+
+        return CommunionView(
+            reading = reading,
+            kept = KeptCommunion(
+                date = response.dateLabel,
+                common = response.commonWitness.map { entry(it) },
+                hidden = response.hiddenWitness.map { entry(it) },
+            ),
+        )
+    }
 }
+
+private fun WireRef.toReference() = ScriptureReference(
+    translation = "kjva",
+    book = slug,
+    chapter = chapter,
+    startVerse = start,
+    endVerse = end,
+)

@@ -129,10 +129,10 @@ fun PanasheApp(
         RemoteCommunionRepository(clientId = clientId, delegate = repository)
     }
 
-    LaunchedEffect(repository) {
+    LaunchedEffect(remoteRepo) {
         runCatching {
-            val v = repository.todayView()
-            val d = repository.bibleData()
+            val v = remoteRepo.todayView()
+            val d = remoteRepo.bibleData()
             view = v
             bibleData = d
             // Use persisted position if available, otherwise default to reading's book/chapter

@@ -11,11 +11,11 @@ data class CommunionEntry(
     val state: String
 )
 
-/** The day's gathered Communion: the common witness with the hidden witness kept beneath. */
+/** The day's gathered Communion: the common witness and the hidden witness (references only, counts hidden). */
 data class KeptCommunion(
     val date: String,
-    val gathered: CommunionEntry,
-    val beneath: List<CommunionEntry>
+    val common: List<CommunionEntry>,
+    val hidden: List<CommunionEntry>
 )
 
 /** Everything the screens need, derived from bundled data + shared rules. */

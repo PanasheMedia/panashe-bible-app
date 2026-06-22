@@ -38,28 +38,21 @@ suspend fun buildCommunionView(data: BibleData): CommunionView {
         chapterVerses = gatheredChapter?.verses.orEmpty()
     )
 
-    val gatheredEntry = CommunionEntry(
-        reference = gatheredRef,
-        display = data.displayReference(gatheredRef),
-        preview = data.passageText(gatheredRef),
-        state = "Gathered passage"
-    )
-
-    val beneath = day.offerings.map { ref ->
-        CommunionEntry(
-            reference = ref,
-            display = data.displayReference(ref),
-            preview = data.passageText(ref),
-            state = "Kept beneath"
-        )
+    // Seed fallback (offline): split the day's offerings into common/hidden,
+    // mirroring the web seed convention. The live witness comes from the API.
+    val common = day.offerings.take(3).map { ref ->
+        CommunionEntry(ref, data.displayReference(ref), data.passageText(ref), "")
+    }
+    val hidden = day.offerings.drop(3).take(2).map { ref ->
+        CommunionEntry(ref, data.displayReference(ref), data.passageText(ref), "")
     }
 
     return CommunionView(
         reading = reading,
         kept = KeptCommunion(
             date = dateLabel,
-            gathered = gatheredEntry,
-            beneath = beneath
+            common = common,
+            hidden = hidden
         )
     )
 }
@@ -84,7 +77,7 @@ val aboutParagraphs = listOf(
     "Panashe speaks of the presence of God. The project is shaped to help readers dwell with Scripture, not rush past it.",
     "Daily Communion has three surfaces: Today's Reading, Today's Offering, and Today's Communion.",
     "Readers offer complete Scripture references. Matching references form a Common Witness; quieter offerings remain part of the Hidden Witness.",
-    "The kept Communion is the final seven: one gathered passage with six beneath it, shown without names, counts, comments, or rankings."
+    "Today's Communion is the witness the Word gathers: a Common Witness and a Hidden Witness, shown without names, counts, comments, or rankings."
 )
 
 val privacyParagraphs = listOf(

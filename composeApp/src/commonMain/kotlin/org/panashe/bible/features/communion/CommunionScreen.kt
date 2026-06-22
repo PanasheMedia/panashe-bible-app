@@ -91,41 +91,14 @@ fun CommunionScreen(
     var showOfferToast by remember { mutableStateOf(false) }
 
     val reading = view?.reading
-    // One generator for all derived state; only depends on the bundled data.
+    // One generator for the archive list; only depends on the bundled data.
     val generator = remember(bibleData) {
         bibleData?.let { CommunionGenerator(it.manifest, it.seed) }
     }
 
-    // The kept Communion shows the previous day's gathered seven.
-    // Passage text is loaded in a coroutine (produceState), never blocking the composition thread.
-    val keptResult by produceState<KeptCommunion?>(initialValue = view?.kept, bibleData, view?.kept) {
-        val data = bibleData
-        val gen = generator
-        if (data == null || gen == null) {
-            value = view?.kept
-            return@produceState
-        }
-        val iso = gen.isoForDate(CommunionGenerator.todayIso(), -1) ?: CommunionGenerator.todayIso()
-        val day = gen.communionForDate(iso)
-        value = KeptCommunion(
-            date = formatDate(day.iso),
-            gathered = CommunionEntry(
-                reference = day.gathered,
-                display = data.displayReference(day.gathered),
-                preview = data.passageText(day.gathered),
-                state = "Gathered passage"
-            ),
-            beneath = day.offerings.map { ref ->
-                CommunionEntry(
-                    reference = ref,
-                    display = data.displayReference(ref),
-                    preview = data.passageText(ref),
-                    state = "Kept beneath"
-                )
-            }
-        )
-    }
-    val kept = keptResult
+    // Today's Communion is the witness gathered live by the server (same for all
+    // readers, counts hidden), carried on the loaded view.
+    val kept = view?.kept
 
     // Archive: the last seven days of gathered Communions.
     val archiveEntries = remember(bibleData) {
@@ -237,9 +210,9 @@ fun CommunionScreen(
         )
         Spacer(Modifier.height(18.dp))
         if (kept == null) {
-            LoadingText("Loading the kept Communion...")
+            LoadingText("Gathering today's Communion...")
         } else {
-            KeptThread(kept, onReadChapter)
+            WitnessSections(kept, onReadChapter)
         }
     }
 
@@ -257,7 +230,7 @@ fun CommunionScreen(
                 if (kept != null) {
                     ArchiveItem(
                         date = kept.date,
-                        reference = kept.gathered.display,
+                        reference = reading?.display ?: "",
                         isToday = true,
                         entranceDelayMillis = 240,
                         modifier = Modifier.widthIn(min = 190.dp, max = 380.dp).weight(1f)
@@ -583,91 +556,81 @@ fun CommunionHero() {
     }
 }
 
-// --- Kept-seven thread layout (mirrors web .kept-thread) ---
+// --- Witness sections: Common Witness + Hidden Witness (references only) ---
 
 @Composable
-fun KeptThread(communion: KeptCommunion, onReadChapter: (String, Int) -> Unit) {
+fun WitnessSections(communion: KeptCommunion, onReadChapter: (String, Int) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        // Gathered passage (OP post with accent left border)
-        GatheredPassage(communion, onReadChapter)
-
-        // Hidden witness header
-        Text(
-            "HIDDEN WITNESS",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.SemiBold,
-            letterSpacing = 0.8.sp,
-            modifier = Modifier.padding(start = 18.dp, top = 12.dp, bottom = 8.dp)
-        )
-
-        // Individual offerings (comments with thread lines)
-        Column(modifier = Modifier.fillMaxWidth()) {
-            communion.beneath.forEach { entry ->
-                KeptOffering(entry, onReadChapter)
-            }
+        if (communion.common.isEmpty() && communion.hidden.isEmpty()) {
+            Text(
+                "No verses have been brought yet today. You may be the first to bring a witness.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 14.sp,
+                lineHeight = 22.sp
+            )
+            return@Column
+        }
+        if (communion.common.isNotEmpty()) {
+            WitnessLabel("COMMON WITNESS")
+            communion.common.forEach { WitnessItem(it, onReadChapter) }
+        }
+        if (communion.hidden.isNotEmpty()) {
+            Spacer(Modifier.height(18.dp))
+            WitnessLabel("HIDDEN WITNESS")
+            communion.hidden.forEach { WitnessItem(it, onReadChapter) }
         }
     }
 }
 
 @Composable
-fun GatheredPassage(communion: KeptCommunion, onReadChapter: (String, Int) -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth()) {
-        // Left accent border (matches web .kept-post border-left: 3px solid var(--accent))
-        Box(
-            modifier = Modifier.width(3.dp)
-                .background(MaterialTheme.colorScheme.secondary)
-        )
-        Column(
-            modifier = Modifier
-                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.02f)) // ink 2% tint
-                .padding(22.dp)
-                .fillMaxWidth()
-        ) {
-            // Meta: OP label + date
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    "COMMON WITNESS",
-                    color = MaterialTheme.colorScheme.secondary,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = 0.6.sp
-                )
-                Text(
-                    communion.date,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 10.sp
-                )
-            }
-            Spacer(Modifier.height(14.dp))
-            // Scripture text
+private fun WitnessLabel(text: String) {
+    Text(
+        text,
+        color = MaterialTheme.colorScheme.secondary,
+        fontSize = 10.sp,
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = 0.8.sp,
+        modifier = Modifier.padding(bottom = 12.dp)
+    )
+}
+
+@Composable
+private fun WitnessItem(entry: CommunionEntry, onReadChapter: (String, Int) -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                communion.gathered.display,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontFamily = FontFamily.Serif,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.SemiBold,
-                lineHeight = 28.sp
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                communion.gathered.preview,
+                entry.display,
                 color = MaterialTheme.colorScheme.onSurface,
                 fontFamily = FontFamily.Serif,
                 fontSize = 15.sp,
-                lineHeight = 26.sp
+                fontWeight = FontWeight.SemiBold
             )
-            Spacer(Modifier.height(12.dp))
-            ReadChapterLink(communion.gathered.reference.book, communion.gathered.reference.chapter, onReadChapter)
+            Spacer(Modifier.weight(1f))
+            ReadChapterLink(entry.reference.book, entry.reference.chapter, onReadChapter)
         }
+        if (entry.preview.isNotBlank()) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                entry.preview,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontFamily = FontFamily.Serif,
+                fontSize = 14.sp,
+                lineHeight = 24.sp
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        Box(
+            modifier = Modifier.fillMaxWidth().height(1.dp)
+                .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
+        )
     }
 }
 
-/** Tappable "Read chapter" link used across the kept thread. */
+/** Tappable "Read the chapter" link used across the witness sections. */
 @Composable
 private fun ReadChapterLink(bookSlug: String, chapter: Int, onReadChapter: (String, Int) -> Unit) {
     Text(
-        "Read chapter",
+        "Read the chapter",
         color = MaterialTheme.colorScheme.secondary,
         fontSize = 11.sp,
         fontWeight = FontWeight.SemiBold,
@@ -676,60 +639,6 @@ private fun ReadChapterLink(bookSlug: String, chapter: Int, onReadChapter: (Stri
             .clickable { onReadChapter(bookSlug, chapter) }
             .padding(horizontal = 8.dp, vertical = 4.dp)
     )
-}
-
-@Composable
-fun KeptOffering(entry: CommunionEntry, onReadChapter: (String, Int) -> Unit) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isHovered by interactionSource.collectIsHoveredAsState()
-
-    Row(
-        modifier = Modifier.fillMaxWidth()
-            .height(IntrinsicSize.Min)
-            .hoverable(interactionSource)
-    ) {
-        // Vertical thread line (continuous full height)
-        Box(
-            modifier = Modifier
-                .width(2.dp)
-                .fillMaxHeight()
-                .background(if (isHovered) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outline)
-        )
-        // Horizontal connector branching to the reference
-        Box(
-            modifier = Modifier
-                .width(16.dp)
-                .height(2.dp)
-                .padding(top = 18.dp)
-                .background(if (isHovered) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outline)
-        )
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(start = 4.dp, top = 12.dp, bottom = 16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        entry.display,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontFamily = FontFamily.Serif,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(Modifier.weight(1f))
-                    ReadChapterLink(entry.reference.book, entry.reference.chapter, onReadChapter)
-                }
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    entry.preview,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 13.sp,
-                    lineHeight = 22.sp
-                )
-            }
-            Box(
-                modifier = Modifier.fillMaxWidth().height(1.dp)
-                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
-            )
-        }
-    }
 }
 
 // --- Top card with accent top border (web .communion-top-card) ---
