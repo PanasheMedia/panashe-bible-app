@@ -29,5 +29,10 @@
     { "reference": { "book": "psalms", "chapter": 133, "startVerse": 1, "endVerse": 1 }, "valid": true },
     { "reference": { "book": "john", "chapter": 1, "startVerse": 1, "endVerse": 4 }, "valid": false },
     { "reference": { "book": "john", "chapter": 1, "startVerse": 5, "endVerse": 2 }, "valid": false }
+  ],
+  "communionSeedDate": [
+    { "date": "2026-06-01", "gathered": { "slug": "john", "chapter": 1, "start": 1, "end": 3 } },
+    { "date": "2026-06-10", "gathered": { "slug": "hebrews", "chapter": 11, "start": 1, "end": 1 } },
+    { "date": "2026-06-21", "gathered": { "slug": "hebrews", "chapter": 4, "start": 12, "end": 12 } }
   ]
 }
