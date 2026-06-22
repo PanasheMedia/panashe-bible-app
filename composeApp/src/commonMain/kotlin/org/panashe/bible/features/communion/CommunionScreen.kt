@@ -68,7 +68,6 @@ import org.panashe.bible.ui.components.Eyebrow
 import org.panashe.bible.ui.components.LoadingText
 import org.panashe.bible.ui.components.PanasheDialog
 import org.panashe.bible.ui.components.PrimaryAction
-import org.panashe.bible.ui.components.SecondaryAction
 import org.panashe.bible.ui.components.SectionCard
 import org.panashe.bible.ui.components.StaggeredEntrance
 import org.panashe.bible.ui.components.ToastBar
@@ -84,7 +83,6 @@ fun CommunionScreen(
     view: CommunionView?,
     bibleData: BibleData?,
     appSettings: AppSettings? = null,
-    onDaily: () -> Unit = {},
     onOffer: (bookSlug: String, chapter: Int, start: Int, end: Int) -> Unit = { _, _, _, _ -> },
 ) {
     // Check if user already offered today
@@ -178,17 +176,14 @@ fun CommunionScreen(
         )
         Spacer(Modifier.height(10.dp))
         Text(
-            "The daily reading is on the landing page. Communion receives one complete reference from you and gathers the latest kept seven here.",
+            "Communion receives one complete reference from you and gathers the latest kept seven here.",
             color = Muted,
             fontSize = 14.sp,
             lineHeight = 24.sp
         )
         Spacer(Modifier.height(14.dp))
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            PrimaryAction(if (showOfferForm) "Hide offering form" else "Offer one reference") {
-                showOfferForm = !showOfferForm
-            }
-            SecondaryAction("Review daily reading", onDaily)
+        PrimaryAction(if (showOfferForm) "Hide offering form" else "Offer one reference") {
+            showOfferForm = !showOfferForm
         }
         if (showOfferForm && bibleData != null) {
             Spacer(Modifier.height(22.dp))
@@ -211,27 +206,11 @@ fun CommunionScreen(
         }
     }
 
-    // Latest settled kept Communion (yesterday when available).
     TabCard {
-        Text(
-            "Latest Kept Communion",
-            color = Ink,
-            fontFamily = FontFamily.Serif,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.SemiBold
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            "Yesterday's settled gathered passage and the six kept beneath it.",
-            color = Muted,
-            fontSize = 14.sp,
-            lineHeight = 22.sp
-        )
-        Spacer(Modifier.height(20.dp))
         if (kept == null) {
             LoadingText("Loading the kept Communion...")
         } else {
-            RedditThread(kept, "Latest")
+            RedditThread(kept)
         }
     }
 
@@ -612,7 +591,7 @@ fun SegmentButton(label: String, selected: Boolean, onClick: () -> Unit, modifie
 // --- Reddit-style thread layout (matches web .reddit-thread) ---
 
 @Composable
-fun RedditThread(communion: KeptCommunion, label: String) {
+fun RedditThread(communion: KeptCommunion) {
     Column(modifier = Modifier.fillMaxWidth()) {
         // Gathered passage (OP post with accent left border)
         RedditPost(communion)
@@ -695,29 +674,26 @@ fun RedditComment(entry: CommunionEntry) {
     Row(
         modifier = Modifier.fillMaxWidth()
             .height(IntrinsicSize.Min)
-            .padding(start = 14.dp)
             .hoverable(interactionSource)
     ) {
-        // Thread line (vertical)
+        // Vertical thread line (continuous full height)
         Box(
-            modifier = Modifier.width(2.dp)
+            modifier = Modifier
+                .width(2.dp)
                 .fillMaxHeight()
                 .background(if (isHovered) Accent else Line)
         )
-        // Horizontal connector + content
-        Column(modifier = Modifier.width(18.dp).fillMaxHeight()) {
-            // Horizontal connector line
-            Spacer(Modifier.height(24.dp))
-            Box(
-                modifier = Modifier.width(14.dp).height(2.dp)
-                    .background(if (isHovered) Accent else Line)
-            )
-        }
+        // Horizontal connector branching to the reference
+        Box(
+            modifier = Modifier
+                .width(16.dp)
+                .height(2.dp)
+                .padding(top = 18.dp)
+                .background(if (isHovered) Accent else Line)
+        )
         Column(modifier = Modifier.fillMaxWidth()) {
-            // Content
-            Column(modifier = Modifier.padding(top = 12.dp, bottom = 16.dp)) {
-                // Reference + Read link
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(modifier = Modifier.padding(start = 4.dp, top = 12.dp, bottom = 16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         entry.display,
                         color = Ink,
@@ -725,6 +701,7 @@ fun RedditComment(entry: CommunionEntry) {
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold
                     )
+                    Spacer(Modifier.weight(1f))
                     Text(
                         "Read chapter",
                         color = Accent,
@@ -733,7 +710,6 @@ fun RedditComment(entry: CommunionEntry) {
                     )
                 }
                 Spacer(Modifier.height(8.dp))
-                // Verse text
                 Text(
                     entry.preview,
                     color = Muted,
@@ -741,7 +717,6 @@ fun RedditComment(entry: CommunionEntry) {
                     lineHeight = 22.sp
                 )
             }
-            // Bottom border (60% line opacity)
             Box(
                 modifier = Modifier.fillMaxWidth().height(1.dp)
                     .background(Line.copy(alpha = 0.6f))

@@ -197,7 +197,6 @@ fun PanasheApp(
                                 view = view,
                                 bibleData = bibleData,
                                 appSettings = appSettings,
-                                onDaily = { route = PanasheRoute.Daily },
                                 onOffer = { slug, ch, start, end ->
                                     offerScope.launch {
                                         runCatching {
