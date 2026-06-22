@@ -83,7 +83,12 @@ import kotlinx.datetime.toLocalDateTime
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun CommunionScreen(view: CommunionView?, bibleData: BibleData?, appSettings: AppSettings? = null) {
+fun CommunionScreen(
+    view: CommunionView?,
+    bibleData: BibleData?,
+    appSettings: AppSettings? = null,
+    onOffer: (bookSlug: String, chapter: Int, start: Int, end: Int) -> Unit = { _, _, _, _ -> },
+) {
     // Check if user already offered today
     val persistedState = remember { appSettings?.load() }
     val todayIso = remember {
@@ -187,10 +192,11 @@ fun CommunionScreen(view: CommunionView?, bibleData: BibleData?, appSettings: Ap
             )
             ProcessNote()
             if (bibleData != null) {
-                OfferingForm(bibleData = bibleData, hasOffered = hasOffered, onSubmitted = {
+                OfferingForm(bibleData = bibleData, hasOffered = hasOffered, onSubmitted = { slug, ch, start, end ->
                     hasOffered = true
                     showOfferToast = true
                     appSettings?.update { copy(offeredTodayIso = todayIso) }
+                    onOffer(slug, ch, start, end) // persist to shared backend (D1)
                 })
             }
         }
@@ -373,7 +379,7 @@ fun ArchiveDetailDialog(detail: ArchiveDetail, onDismiss: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OfferingForm(bibleData: BibleData, hasOffered: Boolean, onSubmitted: () -> Unit) {
+fun OfferingForm(bibleData: BibleData, hasOffered: Boolean, onSubmitted: (bookSlug: String, chapter: Int, start: Int, end: Int) -> Unit) {
     val books = bibleData.manifest.books
     var selectedBookIndex by remember { mutableIntStateOf(0) }
     var selectedChapter by remember { mutableIntStateOf(1) }
@@ -491,7 +497,9 @@ fun OfferingForm(bibleData: BibleData, hasOffered: Boolean, onSubmitted: () -> U
             lineHeight = 22.sp
         )
     } else {
-        PrimaryAction("Submit today's offering") { onSubmitted() }
+        PrimaryAction("Submit today's offering") {
+            onSubmitted(selectedBook.slug, selectedChapter, selectedStartVerse, selectedEndVerse.coerceAtLeast(selectedStartVerse))
+        }
     }
 }
 
@@ -568,7 +576,7 @@ fun CommunionHero() {
     )
 
     Column(
-        modifier = Modifier.fillMaxWidth().padding(top = 54.dp, bottom = 16.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = 28.dp, bottom = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
@@ -583,9 +591,10 @@ fun CommunionHero() {
             "Daily Communion",
             color = Ink,
             fontFamily = FontFamily.Serif,
-            fontSize = 52.sp,
-            lineHeight = 54.sp,
+            fontSize = 45.sp,
+            lineHeight = 46.sp,
             fontWeight = FontWeight.SemiBold,
+            letterSpacing = (-2).sp,
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.height(14.dp))

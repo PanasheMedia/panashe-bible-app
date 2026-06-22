@@ -18,6 +18,18 @@ interface CommunionRepository {
     suspend fun todayView(): CommunionView
     /** The loaded Bible data corpus (manifest, seed, book loader). */
     suspend fun bibleData(): BibleData
+    /**
+     * Submit a reader offering to the shared backend. No-op for local/offline
+     * repositories ([StaticCommunionRepository]); [RemoteCommunionRepository]
+     * sends it to the Cloudflare Worker + D1.
+     */
+    suspend fun submitOffering(
+        dateIso: String,
+        bookSlug: String,
+        chapter: Int,
+        startVerse: Int,
+        endVerse: Int,
+    ) {}
 }
 
 /**

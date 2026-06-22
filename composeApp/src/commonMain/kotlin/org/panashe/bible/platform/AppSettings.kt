@@ -17,7 +17,8 @@ data class PersistedAppState(
     val readerPrefs: PersistedReaderPrefs = PersistedReaderPrefs(),
     val lastBookSlug: String = "john",
     val lastChapter: Int = 1,
-    val offeredTodayIso: String? = null
+    val offeredTodayIso: String? = null,
+    val clientId: String? = null
 )
 
 class AppSettings(private val filePath: String) {

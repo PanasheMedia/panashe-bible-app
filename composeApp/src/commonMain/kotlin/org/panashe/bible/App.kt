@@ -24,16 +24,20 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.panashe.bible.features.communion.CommunionGenerator
 import org.panashe.bible.features.communion.CommunionRepository
 import org.panashe.bible.features.communion.CommunionScreen
 import org.panashe.bible.features.communion.CommunionView
+import org.panashe.bible.features.communion.RemoteCommunionRepository
 import org.panashe.bible.features.communion.StaticCommunionRepository
 import org.panashe.bible.features.pages.TextPage
 import org.panashe.bible.features.reader.BibleScreen
@@ -49,6 +53,10 @@ import org.panashe.bible.ui.Line
 import org.panashe.bible.ui.Muted
 import org.panashe.bible.ui.PanasheTheme
 import org.panashe.bible.ui.Paper
+
+/** Anonymous, stable-per-install client id for the backend's once-per-day rule. */
+private fun randomClientId(): String =
+    buildString { repeat(32) { append("0123456789abcdef".random()) } }
 
 @Composable
 fun PanasheApp(
@@ -86,6 +94,17 @@ fun PanasheApp(
     // Restore last position
     val initialBook = remember { persistedState?.lastBookSlug ?: "john" }
     val initialChapter = remember { persistedState?.lastChapter ?: 1 }
+
+    // Stable anonymous client id for the backend's once-per-day offering rule.
+    val clientId = remember {
+        persistedState?.clientId?.takeIf { it.isNotBlank() }
+            ?: randomClientId().also { id -> appSettings?.update { copy(clientId = id) } }
+    }
+    val offerScope = rememberCoroutineScope()
+    // Offerings go to the shared backend (D1); reads stay on the local repository.
+    val remoteRepo = remember(clientId, repository) {
+        RemoteCommunionRepository(clientId = clientId, delegate = repository)
+    }
 
     LaunchedEffect(repository) {
         runCatching {
@@ -144,7 +163,14 @@ fun PanasheApp(
                             PanasheRoute.Communion -> CommunionScreen(
                                 view = view,
                                 bibleData = bibleData,
-                                appSettings = appSettings
+                                appSettings = appSettings,
+                                onOffer = { slug, ch, start, end ->
+                                    offerScope.launch {
+                                        runCatching {
+                                            remoteRepo.submitOffering(CommunionGenerator.todayIso(), slug, ch, start, end)
+                                        }
+                                    }
+                                }
                             )
                             PanasheRoute.About -> TextPage("About", aboutParagraphs)
                             PanasheRoute.Privacy -> TextPage("Privacy Policy", privacyParagraphs)
