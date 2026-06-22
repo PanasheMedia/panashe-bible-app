@@ -13,9 +13,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -66,6 +68,7 @@ import org.panashe.bible.ui.components.Eyebrow
 import org.panashe.bible.ui.components.LoadingText
 import org.panashe.bible.ui.components.PanasheDialog
 import org.panashe.bible.ui.components.PrimaryAction
+import org.panashe.bible.ui.components.SecondaryAction
 import org.panashe.bible.ui.components.SectionCard
 import org.panashe.bible.ui.components.StaggeredEntrance
 import org.panashe.bible.ui.components.ToastBar
@@ -81,6 +84,7 @@ fun CommunionScreen(
     view: CommunionView?,
     bibleData: BibleData?,
     appSettings: AppSettings? = null,
+    onDaily: () -> Unit = {},
     onOffer: (bookSlug: String, chapter: Int, start: Int, end: Int) -> Unit = { _, _, _, _ -> },
 ) {
     // Check if user already offered today
@@ -90,14 +94,35 @@ fun CommunionScreen(
         "${localDate.year}-${localDate.monthNumber.toString().padStart(2, '0')}-${localDate.dayOfMonth.toString().padStart(2, '0')}"
     }
     var hasOffered by remember { mutableStateOf(persistedState?.offeredTodayIso == todayIso) }
-    var selectedTopTab by remember { mutableStateOf("read") }
-    var selectedKeptTab by remember { mutableStateOf("today") }
+    var showOfferForm by remember { mutableStateOf(false) }
     var showArchiveDialog by remember { mutableStateOf(false) }
     var selectedArchiveIso by remember { mutableStateOf<String?>(null) }
     var showOfferToast by remember { mutableStateOf(false) }
 
     val reading = view?.reading
-    val kept = view?.kept
+    val kept = remember(bibleData, view?.kept) {
+        if (bibleData == null) return@remember view?.kept
+        val gen = CommunionGenerator(bibleData.manifest, bibleData.seed)
+        val iso = gen.isoForDate(CommunionGenerator.todayIso(), -1) ?: CommunionGenerator.todayIso()
+        val day = gen.communionForDate(iso)
+        KeptCommunion(
+            date = formatDate(day.iso),
+            gathered = CommunionEntry(
+                reference = day.gathered,
+                display = bibleData.displayReference(day.gathered),
+                preview = runBlocking { bibleData.passageText(day.gathered) },
+                state = "Gathered passage"
+            ),
+            beneath = day.offerings.map { ref ->
+                CommunionEntry(
+                    reference = ref,
+                    display = bibleData.displayReference(ref),
+                    preview = runBlocking { bibleData.passageText(ref) },
+                    state = "Kept beneath"
+                )
+            }
+        )
+    }
 
     // Generate archive entries (last 7 days)
     val archiveEntries = remember(bibleData) {
@@ -139,37 +164,36 @@ fun CommunionScreen(
 
     CommunionHero()
 
-    // Top card with accent top border, joined with tab card (web .communion-top-card + .communion-tab-card)
+    // Today's offering card. Daily reading itself lives on the landing page.
     TopCard {
-        SegmentedTabs(
-            first = "Read Today's 3 Verses",
-            second = "Offer One Reference",
-            firstSelected = selectedTopTab == "read",
-            onFirst = { selectedTopTab = "read" },
-            onSecond = { selectedTopTab = "offer" }
+        Eyebrow(reading?.dateLabel ?: "Today")
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "Offer Scripture for Today",
+            color = Ink,
+            fontFamily = FontFamily.Serif,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.SemiBold,
+            lineHeight = 28.sp
         )
-        Spacer(Modifier.height(18.dp))
-        if (selectedTopTab == "read") {
-            Eyebrow(reading?.dateLabel ?: "Today")
-            Spacer(Modifier.height(6.dp))
-            Text(
-                reading?.display ?: "Loading...",
-                color = Ink,
-                fontFamily = FontFamily.Serif,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.SemiBold,
-                lineHeight = 28.sp
-            )
-            Spacer(Modifier.height(14.dp))
-            Text(
-                reading?.chapterIntro ?: "Loading the chapter context from bundled Scripture.",
-                color = Muted,
-                fontSize = 14.sp,
-                lineHeight = 24.sp
-            )
-            Spacer(Modifier.height(14.dp))
-            PrimaryAction("Read the full chapter") {}
-        } else {
+        Spacer(Modifier.height(10.dp))
+        Text(
+            "The daily reading is on the landing page. Communion receives one complete reference from you and gathers the latest kept seven here.",
+            color = Muted,
+            fontSize = 14.sp,
+            lineHeight = 24.sp
+        )
+        Spacer(Modifier.height(14.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            PrimaryAction(if (showOfferForm) "Hide offering form" else "Offer one reference") {
+                showOfferForm = !showOfferForm
+            }
+            SecondaryAction("Review daily reading", onDaily)
+        }
+        if (showOfferForm && bibleData != null) {
+            Spacer(Modifier.height(22.dp))
+            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Line))
+            Spacer(Modifier.height(20.dp))
             Text(
                 "Offer One Reference",
                 color = Ink,
@@ -178,37 +202,36 @@ fun CommunionScreen(
                 fontWeight = FontWeight.SemiBold
             )
             Spacer(Modifier.height(10.dp))
-            Text(
-                "Choose a book, chapter, and 1 to 3 consecutive verses that connect with today's passage. You can offer once per day.",
-                color = Muted,
-                fontSize = 14.sp,
-                lineHeight = 24.sp
-            )
-            if (bibleData != null) {
-                OfferingForm(bibleData = bibleData, hasOffered = hasOffered, onSubmitted = { slug, ch, start, end ->
-                    hasOffered = true
-                    showOfferToast = true
-                    appSettings?.update { copy(offeredTodayIso = todayIso) }
-                    onOffer(slug, ch, start, end)
-                })
-            }
+            OfferingForm(bibleData = bibleData, hasOffered = hasOffered, onSubmitted = { slug, ch, start, end ->
+                hasOffered = true
+                showOfferToast = true
+                appSettings?.update { copy(offeredTodayIso = todayIso) }
+                onOffer(slug, ch, start, end)
+            })
         }
     }
 
-    // Tab card — joined directly below top card (web: no gap, shared border)
+    // Latest settled kept Communion (yesterday when available).
     TabCard {
-        SegmentedTabs(
-            first = "Today",
-            second = "Previous",
-            firstSelected = selectedKeptTab == "today",
-            onFirst = { selectedKeptTab = "today" },
-            onSecond = { selectedKeptTab = "previous" }
+        Text(
+            "Latest Kept Communion",
+            color = Ink,
+            fontFamily = FontFamily.Serif,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "Yesterday's settled gathered passage and the six kept beneath it.",
+            color = Muted,
+            fontSize = 14.sp,
+            lineHeight = 22.sp
         )
         Spacer(Modifier.height(20.dp))
         if (kept == null) {
             LoadingText("Loading the kept Communion...")
         } else {
-            RedditThread(kept, if (selectedKeptTab == "today") "Today" else "Previous")
+            RedditThread(kept, "Latest")
         }
     }
 
@@ -671,21 +694,26 @@ fun RedditComment(entry: CommunionEntry) {
 
     Row(
         modifier = Modifier.fillMaxWidth()
+            .height(IntrinsicSize.Min)
             .padding(start = 14.dp)
             .hoverable(interactionSource)
     ) {
         // Thread line (vertical)
         Box(
             modifier = Modifier.width(2.dp)
+                .fillMaxHeight()
                 .background(if (isHovered) Accent else Line)
         )
         // Horizontal connector + content
-        Column(modifier = Modifier.fillMaxWidth().padding(start = 18.dp)) {
+        Column(modifier = Modifier.width(18.dp).fillMaxHeight()) {
             // Horizontal connector line
+            Spacer(Modifier.height(24.dp))
             Box(
                 modifier = Modifier.width(14.dp).height(2.dp)
                     .background(if (isHovered) Accent else Line)
             )
+        }
+        Column(modifier = Modifier.fillMaxWidth()) {
             // Content
             Column(modifier = Modifier.padding(top = 12.dp, bottom = 16.dp)) {
                 // Reference + Read link
