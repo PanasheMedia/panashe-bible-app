@@ -47,6 +47,7 @@ data class CommunionResponse(
     val date: String,
     val dateLabel: String = "",
     val reading: WireRef,
+    val communion: List<WireRef> = emptyList(),
     val commonWitness: List<WireRef> = emptyList(),
     val hiddenWitness: List<WireRef> = emptyList(),
 )

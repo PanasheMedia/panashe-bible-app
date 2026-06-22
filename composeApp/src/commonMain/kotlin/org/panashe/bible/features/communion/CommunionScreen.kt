@@ -139,30 +139,8 @@ fun CommunionScreen(
 
     CommunionHero()
 
-    // Today's gathered passage (the anchor you respond to) + today's offering.
+    // Today's offering — the reading itself lives on the Daily Reading screen.
     TopCard {
-        Eyebrow("Today's Reading · ${reading?.dateLabel ?: ""}".trimEnd(' ', '·'))
-        Spacer(Modifier.height(6.dp))
-        CardHeading(reading?.display ?: "Today's Reading")
-        if (reading != null && reading.verses.isNotEmpty()) {
-            Spacer(Modifier.height(12.dp))
-            Text(
-                reading.verses.joinToString(" ") { it.text },
-                color = MaterialTheme.colorScheme.onSurface,
-                fontFamily = FontFamily.Serif,
-                fontSize = 16.sp,
-                lineHeight = 28.sp
-            )
-            Spacer(Modifier.height(16.dp))
-            SecondaryAction("Read the chapter") {
-                onReadChapter(reading.reference.book, reading.reference.chapter)
-            }
-        }
-
-        Spacer(Modifier.height(24.dp))
-        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outline))
-        Spacer(Modifier.height(24.dp))
-
         Eyebrow("Today's Offering")
         Spacer(Modifier.height(6.dp))
         CardHeading("Bring one verse")
@@ -199,11 +177,9 @@ fun CommunionScreen(
 
     TabCard {
         Eyebrow("Today's Communion · ${kept?.date ?: ""}".trimEnd(' ', '·'))
-        Spacer(Modifier.height(6.dp))
-        CardHeading("The witness gathered")
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(8.dp))
         Text(
-            "Gathered from Scripture offered by readers. The common witness rises clearly; the hidden witness is not forgotten.",
+            "The Scripture readers are bringing today, gathered around the Word.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 13.sp,
             lineHeight = 21.sp
@@ -212,7 +188,7 @@ fun CommunionScreen(
         if (kept == null) {
             LoadingText("Gathering today's Communion...")
         } else {
-            WitnessSections(kept, onReadChapter)
+            KeptThread(kept, onReadChapter)
         }
     }
 
@@ -268,7 +244,7 @@ fun CommunionScreen(
             delay(3000)
             showOfferToast = false
         }
-        ToastBar("Your witness is kept. The Word answers the Word.", visible = showOfferToast)
+        ToastBar("Your offering has been received.", visible = showOfferToast)
     }
 }
 
@@ -546,7 +522,7 @@ fun CommunionHero() {
         )
         Spacer(Modifier.height(14.dp))
         Text(
-            "Read today's word, bring one verse, and see the witness the Word gathers.",
+            "Bring one verse, and see what gathers around the Word today.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 15.sp,
             lineHeight = 25.sp,
@@ -556,73 +532,85 @@ fun CommunionHero() {
     }
 }
 
-// --- Witness sections: Common Witness + Hidden Witness (references only) ---
+// --- Communion thread: the gathered passage + the verses kept beneath it ---
 
 @Composable
-fun WitnessSections(communion: KeptCommunion, onReadChapter: (String, Int) -> Unit) {
+fun KeptThread(communion: KeptCommunion, onReadChapter: (String, Int) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        if (communion.common.isEmpty() && communion.hidden.isEmpty()) {
-            Text(
-                "No verses have been brought yet today. You may be the first to bring a witness.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 14.sp,
-                lineHeight = 22.sp
-            )
-            return@Column
-        }
-        if (communion.common.isNotEmpty()) {
-            WitnessLabel("COMMON WITNESS")
-            communion.common.forEach { WitnessItem(it, onReadChapter) }
-        }
-        if (communion.hidden.isNotEmpty()) {
-            Spacer(Modifier.height(18.dp))
-            WitnessLabel("HIDDEN WITNESS")
-            communion.hidden.forEach { WitnessItem(it, onReadChapter) }
+        GatheredPassage(communion.gathered, onReadChapter)
+        if (communion.beneath.isNotEmpty()) {
+            Spacer(Modifier.height(6.dp))
+            Column(modifier = Modifier.fillMaxWidth()) {
+                communion.beneath.forEach { entry -> KeptOffering(entry, onReadChapter) }
+            }
         }
     }
 }
 
+/** The most-resonant passage today, set apart with an accent border (the thread's head). */
 @Composable
-private fun WitnessLabel(text: String) {
-    Text(
-        text,
-        color = MaterialTheme.colorScheme.secondary,
-        fontSize = 10.sp,
-        fontWeight = FontWeight.SemiBold,
-        letterSpacing = 0.8.sp,
-        modifier = Modifier.padding(bottom = 12.dp)
-    )
+private fun GatheredPassage(entry: CommunionEntry, onReadChapter: (String, Int) -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+        Box(modifier = Modifier.width(3.dp).fillMaxHeight().background(MaterialTheme.colorScheme.secondary))
+        Column(
+            modifier = Modifier
+                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.02f))
+                .padding(20.dp)
+                .fillMaxWidth()
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    entry.display,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontFamily = FontFamily.Serif,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.weight(1f))
+                ReadChapterLink(entry.reference.book, entry.reference.chapter, onReadChapter)
+            }
+            if (entry.preview.isNotBlank()) {
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    entry.preview,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontFamily = FontFamily.Serif,
+                    fontSize = 15.sp,
+                    lineHeight = 26.sp
+                )
+            }
+        }
+    }
 }
 
+/** A verse kept beneath the gathered passage, joined by a thread line. */
 @Composable
-private fun WitnessItem(entry: CommunionEntry, onReadChapter: (String, Int) -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                entry.display,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontFamily = FontFamily.Serif,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(Modifier.weight(1f))
-            ReadChapterLink(entry.reference.book, entry.reference.chapter, onReadChapter)
+private fun KeptOffering(entry: CommunionEntry, onReadChapter: (String, Int) -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+        Box(modifier = Modifier.width(2.dp).fillMaxHeight().background(MaterialTheme.colorScheme.outline))
+        Box(modifier = Modifier.width(16.dp).height(2.dp).padding(top = 20.dp).background(MaterialTheme.colorScheme.outline))
+        Column(modifier = Modifier.fillMaxWidth().padding(start = 4.dp, top = 14.dp, bottom = 16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    entry.display,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontFamily = FontFamily.Serif,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.weight(1f))
+                ReadChapterLink(entry.reference.book, entry.reference.chapter, onReadChapter)
+            }
+            if (entry.preview.isNotBlank()) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    entry.preview,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp,
+                    lineHeight = 22.sp
+                )
+            }
         }
-        if (entry.preview.isNotBlank()) {
-            Spacer(Modifier.height(6.dp))
-            Text(
-                entry.preview,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontFamily = FontFamily.Serif,
-                fontSize = 14.sp,
-                lineHeight = 24.sp
-            )
-        }
-        Spacer(Modifier.height(12.dp))
-        Box(
-            modifier = Modifier.fillMaxWidth().height(1.dp)
-                .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
-        )
     }
 }
 

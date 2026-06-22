@@ -78,12 +78,15 @@ class RemoteCommunionRepository(
             chapterVerses = readingChapter?.verses.orEmpty(),
         )
 
+        // The Communion thread: the verses interacting today, most-offered first.
+        val thread = response.communion.map { entry(it) }
+        val gathered = thread.firstOrNull() ?: entry(response.reading)
         return CommunionView(
             reading = reading,
             kept = KeptCommunion(
                 date = response.dateLabel,
-                common = response.commonWitness.map { entry(it) },
-                hidden = response.hiddenWitness.map { entry(it) },
+                gathered = gathered,
+                beneath = thread.drop(1),
             ),
         )
     }

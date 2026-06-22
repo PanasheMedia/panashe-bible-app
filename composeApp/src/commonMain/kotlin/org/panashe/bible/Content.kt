@@ -38,21 +38,21 @@ suspend fun buildCommunionView(data: BibleData): CommunionView {
         chapterVerses = gatheredChapter?.verses.orEmpty()
     )
 
-    // Seed fallback (offline): split the day's offerings into common/hidden,
-    // mirroring the web seed convention. The live witness comes from the API.
-    val common = day.offerings.take(3).map { ref ->
+    // Seed fallback (offline): the day's offerings form the thread, most-resonant
+    // first. The live thread comes from the API.
+    val thread = day.offerings.take(7).map { ref ->
         CommunionEntry(ref, data.displayReference(ref), data.passageText(ref), "")
     }
-    val hidden = day.offerings.drop(3).take(2).map { ref ->
-        CommunionEntry(ref, data.displayReference(ref), data.passageText(ref), "")
-    }
+    val gatheredEntry = thread.firstOrNull() ?: CommunionEntry(
+        gatheredRef, data.displayReference(gatheredRef), data.passageText(gatheredRef), ""
+    )
 
     return CommunionView(
         reading = reading,
         kept = KeptCommunion(
             date = dateLabel,
-            common = common,
-            hidden = hidden
+            gathered = gatheredEntry,
+            beneath = thread.drop(1)
         )
     )
 }
@@ -76,8 +76,8 @@ private val MONTHS = listOf(
 val aboutParagraphs = listOf(
     "Panashe speaks of the presence of God. The project is shaped to help readers dwell with Scripture, not rush past it.",
     "Daily Communion has three surfaces: Today's Reading, Today's Offering, and Today's Communion.",
-    "Readers offer complete Scripture references. Matching references form a Common Witness; quieter offerings remain part of the Hidden Witness.",
-    "Today's Communion is the witness the Word gathers: a Common Witness and a Hidden Witness, shown without names, counts, comments, or rankings."
+    "Readers offer complete Scripture references that connect with the day's reading. Those verses gather into the day's Communion.",
+    "Today's Communion shows the verses interacting today, gathered around the Word — without names, counts, comments, or rankings."
 )
 
 val privacyParagraphs = listOf(
