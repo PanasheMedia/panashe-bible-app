@@ -239,7 +239,7 @@ fun CommunionScreen(
         if (kept == null) {
             LoadingText("Loading the kept Communion...")
         } else {
-            RedditThread(kept, onReadChapter)
+            KeptThread(kept, onReadChapter)
         }
     }
 
@@ -585,13 +585,13 @@ fun CommunionHero() {
     }
 }
 
-// --- Reddit-style thread layout (matches web .reddit-thread) ---
+// --- Kept-seven thread layout (mirrors web .kept-thread) ---
 
 @Composable
-fun RedditThread(communion: KeptCommunion, onReadChapter: (String, Int) -> Unit) {
+fun KeptThread(communion: KeptCommunion, onReadChapter: (String, Int) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth()) {
         // Gathered passage (OP post with accent left border)
-        RedditPost(communion, onReadChapter)
+        GatheredPassage(communion, onReadChapter)
 
         // Comments header
         Text(
@@ -606,16 +606,16 @@ fun RedditThread(communion: KeptCommunion, onReadChapter: (String, Int) -> Unit)
         // Individual offerings (comments with thread lines)
         Column(modifier = Modifier.fillMaxWidth()) {
             communion.beneath.forEach { entry ->
-                RedditComment(entry, onReadChapter)
+                KeptOffering(entry, onReadChapter)
             }
         }
     }
 }
 
 @Composable
-fun RedditPost(communion: KeptCommunion, onReadChapter: (String, Int) -> Unit) {
+fun GatheredPassage(communion: KeptCommunion, onReadChapter: (String, Int) -> Unit) {
     Row(modifier = Modifier.fillMaxWidth()) {
-        // Left accent border (matches web .reddit-post border-left: 3px solid var(--accent))
+        // Left accent border (matches web .kept-post border-left: 3px solid var(--accent))
         Box(
             modifier = Modifier.width(3.dp)
                 .background(MaterialTheme.colorScheme.secondary)
@@ -681,7 +681,7 @@ private fun ReadChapterLink(bookSlug: String, chapter: Int, onReadChapter: (Stri
 }
 
 @Composable
-fun RedditComment(entry: CommunionEntry, onReadChapter: (String, Int) -> Unit) {
+fun KeptOffering(entry: CommunionEntry, onReadChapter: (String, Int) -> Unit) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
 
