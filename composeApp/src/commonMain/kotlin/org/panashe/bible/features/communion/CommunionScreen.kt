@@ -181,7 +181,7 @@ fun CommunionScreen(
                 lineHeight = 28.sp
             )
             Spacer(Modifier.height(16.dp))
-            SecondaryAction("Read full chapter") {
+            SecondaryAction("Read the chapter") {
                 onReadChapter(reading.reference.book, reading.reference.chapter)
             }
         }
@@ -192,10 +192,10 @@ fun CommunionScreen(
 
         Eyebrow("Today's Offering")
         Spacer(Modifier.height(6.dp))
-        CardHeading("Offer one reference")
+        CardHeading("Bring one verse")
         Spacer(Modifier.height(10.dp))
         Text(
-            "Respond with one complete reference — a book, chapter, and 1 to 3 verses that connect with today's passage. One offering per day; the kept seven are gathered below.",
+            "Bring one Scripture reference that connects with today's reading. One offering per day. 1–3 consecutive verses.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 14.sp,
             lineHeight = 24.sp
@@ -203,13 +203,13 @@ fun CommunionScreen(
         Spacer(Modifier.height(16.dp))
         if (hasOffered) {
             Text(
-                "Your offering has been received for today. Return tomorrow for a new gathering.",
+                "You have brought your offering today. Return tomorrow for a new reading.",
                 color = MaterialTheme.colorScheme.secondary,
                 fontWeight = FontWeight.SemiBold,
                 lineHeight = 22.sp
             )
         } else if (bibleData != null) {
-            PrimaryAction(if (showOfferForm) "Close" else "Offer a reference") {
+            PrimaryAction(if (showOfferForm) "Close" else "Bring one verse") {
                 showOfferForm = !showOfferForm
             }
             if (showOfferForm) {
@@ -225,12 +225,12 @@ fun CommunionScreen(
     }
 
     TabCard {
-        Eyebrow("The Kept Seven · ${kept?.date ?: ""}".trimEnd(' ', '·'))
+        Eyebrow("Today's Communion · ${kept?.date ?: ""}".trimEnd(' ', '·'))
         Spacer(Modifier.height(6.dp))
-        CardHeading("Yesterday's Communion")
+        CardHeading("The witness gathered")
         Spacer(Modifier.height(4.dp))
         Text(
-            "One gathered passage and the six kept beneath it — Scripture answering Scripture.",
+            "Gathered from Scripture offered by readers. The common witness rises clearly; the hidden witness is not forgotten.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 13.sp,
             lineHeight = 21.sp
@@ -258,7 +258,6 @@ fun CommunionScreen(
                     ArchiveItem(
                         date = kept.date,
                         reference = kept.gathered.display,
-                        count = kept.beneath.size,
                         isToday = true,
                         entranceDelayMillis = 240,
                         modifier = Modifier.widthIn(min = 190.dp, max = 380.dp).weight(1f)
@@ -269,7 +268,6 @@ fun CommunionScreen(
                     ArchiveItem(
                         date = entry.dateLabel,
                         reference = entry.reference,
-                        count = entry.offerings.size,
                         isToday = false,
                         entranceDelayMillis = 300 + index * 50,
                         modifier = Modifier.widthIn(min = 190.dp, max = 380.dp).weight(1f)
@@ -297,7 +295,7 @@ fun CommunionScreen(
             delay(3000)
             showOfferToast = false
         }
-        ToastBar("Your offering has been received for today.", visible = showOfferToast)
+        ToastBar("Your witness is kept. The Word answers the Word.", visible = showOfferToast)
     }
 }
 
@@ -339,7 +337,7 @@ fun ArchiveDetailDialog(detail: ArchiveDetail, onDismiss: () -> Unit) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    "${detail.offerings.size} KEPT BENEATH",
+                    "HIDDEN WITNESS",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -478,7 +476,7 @@ fun OfferingForm(bibleData: BibleData, hasOffered: Boolean, onSubmitted: (bookSl
 
     Spacer(Modifier.height(14.dp))
     Text(
-        "After you offer, this form closes for today. The kept Communion is assembled privately from all offerings.",
+        "After you offer, this form closes for today. The witness is gathered quietly from all offerings.",
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         fontSize = 13.sp,
         lineHeight = 21.sp
@@ -486,13 +484,13 @@ fun OfferingForm(bibleData: BibleData, hasOffered: Boolean, onSubmitted: (bookSl
     Spacer(Modifier.height(14.dp))
     if (hasOffered) {
         Text(
-            "Your offering has been received for today.",
+            "Your witness is kept.",
             color = MaterialTheme.colorScheme.secondary,
             fontWeight = FontWeight.SemiBold,
             lineHeight = 22.sp
         )
     } else {
-        PrimaryAction("Submit today's offering") {
+        PrimaryAction("Bring one verse") {
             onSubmitted(selectedBook.slug, selectedChapter, selectedStartVerse, selectedEndVerse.coerceAtLeast(selectedStartVerse))
         }
     }
@@ -575,7 +573,7 @@ fun CommunionHero() {
         )
         Spacer(Modifier.height(14.dp))
         Text(
-            "Read today's passage, offer one reference, and see the seven that are kept.",
+            "Read today's word, bring one verse, and see the witness the Word gathers.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 15.sp,
             lineHeight = 25.sp,
@@ -593,9 +591,9 @@ fun KeptThread(communion: KeptCommunion, onReadChapter: (String, Int) -> Unit) {
         // Gathered passage (OP post with accent left border)
         GatheredPassage(communion, onReadChapter)
 
-        // Comments header
+        // Hidden witness header
         Text(
-            "${communion.beneath.size} KEPT BENEATH",
+            "HIDDEN WITNESS",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 10.sp,
             fontWeight = FontWeight.SemiBold,
@@ -629,7 +627,7 @@ fun GatheredPassage(communion: KeptCommunion, onReadChapter: (String, Int) -> Un
             // Meta: OP label + date
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    "GATHERED PASSAGE",
+                    "COMMON WITNESS",
                     color = MaterialTheme.colorScheme.secondary,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -780,7 +778,6 @@ fun TabCard(content: @Composable ColumnScope.() -> Unit) {
 fun ArchiveItem(
     date: String,
     reference: String,
-    count: Int,
     isToday: Boolean,
     entranceDelayMillis: Int = 0,
     modifier: Modifier = Modifier
@@ -825,7 +822,7 @@ fun ArchiveItem(
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    "$count kept beneath",
+                    "Settled",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 10.sp,
                     lineHeight = 14.sp

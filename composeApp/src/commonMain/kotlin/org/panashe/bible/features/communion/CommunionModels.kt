@@ -11,7 +11,7 @@ data class CommunionEntry(
     val state: String
 )
 
-/** The kept seven: one gathered passage with beneath offerings. */
+/** The day's gathered Communion: the common witness with the hidden witness kept beneath. */
 data class KeptCommunion(
     val date: String,
     val gathered: CommunionEntry,
