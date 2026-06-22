@@ -228,6 +228,11 @@ fun PanasheApp(
                                             remoteRepo.submitOffering(CommunionGenerator.todayIso(), slug, ch, start, end)
                                         }
                                     }
+                                },
+                                onReadChapter = { slug, ch ->
+                                    bibleBookSlug = slug
+                                    bibleChapter = ch
+                                    route = PanasheRoute.Bible
                                 }
                             )
                             PanasheRoute.About -> {

@@ -47,6 +47,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -58,6 +59,7 @@ import org.panashe.bible.ui.components.Eyebrow
 import org.panashe.bible.ui.components.LoadingText
 import org.panashe.bible.ui.components.PanasheDialog
 import org.panashe.bible.ui.components.PrimaryAction
+import org.panashe.bible.ui.components.SecondaryAction
 import org.panashe.bible.ui.components.SectionCard
 import org.panashe.bible.ui.components.StaggeredEntrance
 import org.panashe.bible.ui.components.ToastBar
@@ -74,6 +76,7 @@ fun CommunionScreen(
     bibleData: BibleData?,
     appSettings: AppSettings? = null,
     onOffer: (bookSlug: String, chapter: Int, start: Int, end: Int) -> Unit = { _, _, _, _ -> },
+    onReadChapter: (bookSlug: String, chapter: Int) -> Unit = { _, _ -> },
 ) {
     // Check if user already offered today
     val persistedState = remember { appSettings?.load() }
@@ -163,42 +166,80 @@ fun CommunionScreen(
 
     CommunionHero()
 
-    // Today's offering card. Daily reading itself lives on the landing page.
+    // Today's gathered passage (the anchor you respond to) + today's offering.
     TopCard {
-        Eyebrow(reading?.dateLabel ?: "Today")
+        Eyebrow("Today's Reading · ${reading?.dateLabel ?: ""}".trimEnd(' ', '·'))
         Spacer(Modifier.height(6.dp))
-        CardHeading("Offer Scripture for Today")
+        CardHeading(reading?.display ?: "Today's Reading")
+        if (reading != null && reading.verses.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            Text(
+                reading.verses.joinToString(" ") { it.text },
+                color = MaterialTheme.colorScheme.onSurface,
+                fontFamily = FontFamily.Serif,
+                fontSize = 16.sp,
+                lineHeight = 28.sp
+            )
+            Spacer(Modifier.height(16.dp))
+            SecondaryAction("Read full chapter") {
+                onReadChapter(reading.reference.book, reading.reference.chapter)
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outline))
+        Spacer(Modifier.height(24.dp))
+
+        Eyebrow("Today's Offering")
+        Spacer(Modifier.height(6.dp))
+        CardHeading("Offer one reference")
         Spacer(Modifier.height(10.dp))
         Text(
-            "Communion receives one complete reference from you and gathers the latest kept seven here.",
+            "Respond with one complete reference — a book, chapter, and 1 to 3 verses that connect with today's passage. One offering per day; the kept seven are gathered below.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 14.sp,
             lineHeight = 24.sp
         )
-        Spacer(Modifier.height(14.dp))
-        PrimaryAction(if (showOfferForm) "Hide offering form" else "Offer one reference") {
-            showOfferForm = !showOfferForm
-        }
-        if (showOfferForm && bibleData != null) {
-            Spacer(Modifier.height(22.dp))
-            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outline))
-            Spacer(Modifier.height(20.dp))
-            CardHeading("Offer One Reference")
-            Spacer(Modifier.height(10.dp))
-            OfferingForm(bibleData = bibleData, hasOffered = hasOffered, onSubmitted = { slug, ch, start, end ->
-                hasOffered = true
-                showOfferToast = true
-                appSettings?.update { copy(offeredTodayIso = todayIso) }
-                onOffer(slug, ch, start, end)
-            })
+        Spacer(Modifier.height(16.dp))
+        if (hasOffered) {
+            Text(
+                "Your offering has been received for today. Return tomorrow for a new gathering.",
+                color = MaterialTheme.colorScheme.secondary,
+                fontWeight = FontWeight.SemiBold,
+                lineHeight = 22.sp
+            )
+        } else if (bibleData != null) {
+            PrimaryAction(if (showOfferForm) "Close" else "Offer a reference") {
+                showOfferForm = !showOfferForm
+            }
+            if (showOfferForm) {
+                Spacer(Modifier.height(20.dp))
+                OfferingForm(bibleData = bibleData, hasOffered = hasOffered, onSubmitted = { slug, ch, start, end ->
+                    hasOffered = true
+                    showOfferToast = true
+                    appSettings?.update { copy(offeredTodayIso = todayIso) }
+                    onOffer(slug, ch, start, end)
+                })
+            }
         }
     }
 
     TabCard {
+        Eyebrow("The Kept Seven · ${kept?.date ?: ""}".trimEnd(' ', '·'))
+        Spacer(Modifier.height(6.dp))
+        CardHeading("Yesterday's Communion")
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "One gathered passage and the six kept beneath it — Scripture answering Scripture.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 13.sp,
+            lineHeight = 21.sp
+        )
+        Spacer(Modifier.height(18.dp))
         if (kept == null) {
             LoadingText("Loading the kept Communion...")
         } else {
-            RedditThread(kept)
+            RedditThread(kept, onReadChapter)
         }
     }
 
@@ -547,10 +588,10 @@ fun CommunionHero() {
 // --- Reddit-style thread layout (matches web .reddit-thread) ---
 
 @Composable
-fun RedditThread(communion: KeptCommunion) {
+fun RedditThread(communion: KeptCommunion, onReadChapter: (String, Int) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth()) {
         // Gathered passage (OP post with accent left border)
-        RedditPost(communion)
+        RedditPost(communion, onReadChapter)
 
         // Comments header
         Text(
@@ -565,14 +606,14 @@ fun RedditThread(communion: KeptCommunion) {
         // Individual offerings (comments with thread lines)
         Column(modifier = Modifier.fillMaxWidth()) {
             communion.beneath.forEach { entry ->
-                RedditComment(entry)
+                RedditComment(entry, onReadChapter)
             }
         }
     }
 }
 
 @Composable
-fun RedditPost(communion: KeptCommunion) {
+fun RedditPost(communion: KeptCommunion, onReadChapter: (String, Int) -> Unit) {
     Row(modifier = Modifier.fillMaxWidth()) {
         // Left accent border (matches web .reddit-post border-left: 3px solid var(--accent))
         Box(
@@ -618,12 +659,29 @@ fun RedditPost(communion: KeptCommunion) {
                 fontSize = 15.sp,
                 lineHeight = 26.sp
             )
+            Spacer(Modifier.height(12.dp))
+            ReadChapterLink(communion.gathered.reference.book, communion.gathered.reference.chapter, onReadChapter)
         }
     }
 }
 
+/** Tappable "Read chapter" link used across the kept thread. */
 @Composable
-fun RedditComment(entry: CommunionEntry) {
+private fun ReadChapterLink(bookSlug: String, chapter: Int, onReadChapter: (String, Int) -> Unit) {
+    Text(
+        "Read chapter",
+        color = MaterialTheme.colorScheme.secondary,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier
+            .clip(RoundedCornerShape(4.dp))
+            .clickable { onReadChapter(bookSlug, chapter) }
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+    )
+}
+
+@Composable
+fun RedditComment(entry: CommunionEntry, onReadChapter: (String, Int) -> Unit) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
 
@@ -658,12 +716,7 @@ fun RedditComment(entry: CommunionEntry) {
                         fontWeight = FontWeight.SemiBold
                     )
                     Spacer(Modifier.weight(1f))
-                    Text(
-                        "Read chapter",
-                        color = MaterialTheme.colorScheme.secondary,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Medium
-                    )
+                    ReadChapterLink(entry.reference.book, entry.reference.chapter, onReadChapter)
                 }
                 Spacer(Modifier.height(8.dp))
                 Text(
