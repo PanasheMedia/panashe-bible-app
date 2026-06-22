@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,7 +25,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -63,7 +63,9 @@ import org.panashe.bible.ui.Muted
 import org.panashe.bible.ui.Soft
 import org.panashe.bible.ui.SurfaceColor
 import org.panashe.bible.ui.components.Eyebrow
+import org.panashe.bible.ui.components.Eyebrow
 import org.panashe.bible.ui.components.LoadingText
+import org.panashe.bible.ui.components.PanasheDialog
 import org.panashe.bible.ui.components.PrimaryAction
 import org.panashe.bible.ui.components.SectionCard
 import org.panashe.bible.platform.AppSettings
@@ -136,7 +138,7 @@ fun CommunionScreen(
 
     CommunionHero()
 
-    // Top card with accent top border (matches web .communion-top-card)
+    // Top card with accent top border, joined with tab card (web .communion-top-card + .communion-tab-card)
     TopCard {
         SegmentedTabs(
             first = "Read Today's 3 Verses",
@@ -186,14 +188,14 @@ fun CommunionScreen(
                     hasOffered = true
                     showOfferToast = true
                     appSettings?.update { copy(offeredTodayIso = todayIso) }
-                    onOffer(slug, ch, start, end) // persist to shared backend (D1)
+                    onOffer(slug, ch, start, end)
                 })
             }
         }
     }
 
-    // Kept Seven card with Reddit-style thread layout
-    SectionCard {
+    // Tab card — joined directly below top card (web: no gap, shared border)
+    TabCard {
         SegmentedTabs(
             first = "Today",
             second = "Previous",
@@ -209,7 +211,7 @@ fun CommunionScreen(
         }
     }
 
-    // Archive card with grid layout
+    // Archive card with responsive grid layout
     SectionCard {
         Text(
             "Archive",
@@ -219,33 +221,37 @@ fun CommunionScreen(
             fontWeight = FontWeight.SemiBold
         )
         Spacer(Modifier.height(14.dp))
-        if (archiveEntries.isNotEmpty()) {
-            // Today's entry
-            if (kept != null) {
-                ArchiveItem(
-                    date = kept.date,
-                    reference = kept.gathered.display,
-                    count = kept.beneath.size,
-                    isToday = true,
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                )
+        if (archiveEntries.isNotEmpty() || kept != null) {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Today's entry
+                if (kept != null) {
+                    ArchiveItem(
+                        date = kept.date,
+                        reference = kept.gathered.display,
+                        count = kept.beneath.size,
+                        isToday = true,
+                        modifier = Modifier.widthIn(min = 190.dp, max = 380.dp).weight(1f)
+                    )
+                }
+                // Previous days
+                archiveEntries.forEach { entry ->
+                    ArchiveItem(
+                        date = entry.dateLabel,
+                        reference = entry.reference,
+                        count = entry.offerings.size,
+                        isToday = false,
+                        modifier = Modifier.widthIn(min = 190.dp, max = 380.dp).weight(1f)
+                            .clickable {
+                                selectedArchiveIso = entry.iso
+                                showArchiveDialog = true
+                            }
+                    )
+                }
             }
-            // Previous days
-            archiveEntries.forEach { entry ->
-                ArchiveItem(
-                    date = entry.dateLabel,
-                    reference = entry.reference,
-                    count = entry.offerings.size,
-                    isToday = false,
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                        .clickable {
-                            selectedArchiveIso = entry.iso
-                            showArchiveDialog = true
-                        }
-                )
-            }
-        } else if (kept != null) {
-            ArchiveGrid(kept)
         }
     }
 
@@ -285,18 +291,14 @@ fun CommunionScreen(
 
 @Composable
 fun ArchiveDetailDialog(detail: ArchiveDetail, onDismiss: () -> Unit) {
-    AlertDialog(
+    PanasheDialog(
         onDismissRequest = onDismiss,
-        title = {
-            Column {
-                Text(
-                    detail.dateLabel,
-                    color = Muted,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = 0.8.sp
-                )
-                Spacer(Modifier.height(4.dp))
+        eyebrow = "Communion",
+        title = detail.dateLabel
+    ) {
+        LazyColumn(modifier = Modifier.padding(25.dp)) {
+            // Gathered passage reference
+            item {
                 Text(
                     detail.gatheredRef,
                     color = Ink,
@@ -304,58 +306,47 @@ fun ArchiveDetailDialog(detail: ArchiveDetail, onDismiss: () -> Unit) {
                     fontSize = 20.sp,
                     fontWeight = FontWeight.SemiBold
                 )
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    detail.gatheredText,
+                    color = Ink,
+                    fontFamily = FontFamily.Serif,
+                    fontSize = 16.sp,
+                    lineHeight = 26.sp
+                )
+                Spacer(Modifier.height(16.dp))
+                HorizontalDivider(color = Line)
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    "${detail.offerings.size} KEPT BENEATH",
+                    color = Muted,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 0.8.sp
+                )
+                Spacer(Modifier.height(8.dp))
             }
-        },
-        text = {
-            LazyColumn {
-                // Gathered passage
-                item {
+            // Offerings
+            items(detail.offerings) { offering ->
+                Column(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
                     Text(
-                        detail.gatheredText,
+                        offering.reference,
+                        color = Accent,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        offering.text,
                         color = Ink,
                         fontFamily = FontFamily.Serif,
-                        fontSize = 16.sp,
-                        lineHeight = 26.sp
+                        fontSize = 14.sp,
+                        lineHeight = 22.sp
                     )
-                    Spacer(Modifier.height(16.dp))
-                    HorizontalDivider(color = Line)
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        "${detail.offerings.size} KEPT BENEATH",
-                        color = Muted,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 0.8.sp
-                    )
-                    Spacer(Modifier.height(8.dp))
                 }
-                // Offerings
-                items(detail.offerings) { offering ->
-                    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
-                        Text(
-                            offering.reference,
-                            color = Accent,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            offering.text,
-                            color = Ink,
-                            fontFamily = FontFamily.Serif,
-                            fontSize = 14.sp,
-                            lineHeight = 22.sp
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Close", color = Muted)
             }
         }
-    )
+    }
 }
 
 // --- Cascading Offering Form ---
@@ -742,7 +733,7 @@ fun RedditComment(entry: CommunionEntry) {
     }
 }
 
-// --- Top card with accent top border ---
+// --- Top card with accent top border (web .communion-top-card) ---
 
 @Composable
 fun TopCard(content: @Composable ColumnScope.() -> Unit) {
@@ -750,7 +741,7 @@ fun TopCard(content: @Composable ColumnScope.() -> Unit) {
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, Line),
         shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp),
-        modifier = Modifier.fillMaxWidth().padding(bottom = 0.dp)
+        modifier = Modifier.fillMaxWidth()
     ) {
         Column(
             modifier = Modifier
@@ -761,22 +752,34 @@ fun TopCard(content: @Composable ColumnScope.() -> Unit) {
     }
 }
 
+// --- Joined tab card (web .communion-tab-card) ---
+
+@Composable
+fun TabCard(content: @Composable ColumnScope.() -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, Line),
+        shape = RoundedCornerShape(bottomStart = 4.dp, bottomEnd = 4.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 26.dp),
+            content = content
+        )
+    }
+}
+
 // --- Archive grid (matches web .communion-archive-list) ---
 
 @Composable
 fun ArchiveGrid(communion: KeptCommunion) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        ArchiveItem(
-            date = communion.date,
-            reference = communion.gathered.display,
-            count = communion.beneath.size,
-            isToday = true,
-            modifier = Modifier.weight(1f)
-        )
-    }
+    ArchiveItem(
+        date = communion.date,
+        reference = communion.gathered.display,
+        count = communion.beneath.size,
+        isToday = true,
+        modifier = Modifier.fillMaxWidth()
+    )
 }
 
 @Composable
@@ -794,7 +797,22 @@ fun ArchiveItem(date: String, reference: String, count: Int, isToday: Boolean, m
         modifier = modifier.hoverable(interactionSource)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(date, color = Muted, fontSize = 10.sp, lineHeight = 14.sp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(date, color = Muted, fontSize = 10.sp, lineHeight = 14.sp)
+                if (isToday) {
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "TODAY",
+                        color = androidx.compose.ui.graphics.Color.White,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.4.sp,
+                        modifier = Modifier
+                            .background(Accent, RoundedCornerShape(3.dp))
+                            .padding(horizontal = 6.dp, vertical = 1.dp)
+                    )
+                }
+            }
             Spacer(Modifier.height(4.dp))
             Text(
                 reference,

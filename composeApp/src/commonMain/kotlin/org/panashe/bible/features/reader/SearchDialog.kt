@@ -17,7 +17,6 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.toLowerCase
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -27,6 +26,7 @@ import org.panashe.bible.ui.Accent
 import org.panashe.bible.ui.Ink
 import org.panashe.bible.ui.Line
 import org.panashe.bible.ui.Muted
+import org.panashe.bible.ui.components.PanasheDialog
 
 private data class ScoredResult(val entry: SearchIndexEntry, val score: Int)
 
@@ -34,14 +34,10 @@ private fun scoreResult(entry: SearchIndexEntry, query: String): Int {
     val text = entry.text.lowercase()
     val q = query.lowercase()
     var score = 0
-    // Exact word boundary match scores higher
     val wordBoundary = Regex("\\b${Regex.escape(q)}\\b")
     if (wordBoundary.containsMatchIn(text)) score += 10
-    // Simple contains
     if (text.contains(q)) score += 5
-    // Bonus for starting with query
     if (text.startsWith(q)) score += 3
-    // Bonus for reference containing query
     val ref = "${entry.book} ${entry.chapter}:${entry.verse}"
     if (ref.lowercase().contains(q)) score += 2
     return score
@@ -70,7 +66,6 @@ private fun highlightText(text: String, query: String): AnnotatedString {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchDialog(
     bibleData: BibleData,
@@ -97,32 +92,15 @@ fun SearchDialog(
             .map { it.entry }
     }
 
-    ModalBottomSheet(
+    PanasheDialog(
         onDismissRequest = onDismissRequest,
-        containerColor = MaterialTheme.colorScheme.surface,
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        dragHandle = { BottomSheetDefaults.DragHandle() },
-        modifier = Modifier.fillMaxHeight(0.9f)
+        eyebrow = "Search",
+        title = "Find verses"
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 24.dp)
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 25.dp).padding(bottom = 25.dp)
         ) {
-            Text(
-                "SEARCH",
-                color = MaterialTheme.colorScheme.secondary,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 1.2.sp
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                "Find verses",
-                color = Ink,
-                fontFamily = FontFamily.Serif,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(20.dp))
 
             OutlinedTextField(
                 value = searchQuery,
@@ -163,7 +141,7 @@ fun SearchDialog(
 
             if (searchQuery.length >= 3) {
                 if (results.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                    Box(modifier = Modifier.fillMaxWidth().heightIn(min = 200.dp), contentAlignment = Alignment.Center) {
                         Text(
                             "No verses found for \"$searchQuery\"",
                             color = Muted,
@@ -171,7 +149,7 @@ fun SearchDialog(
                         )
                     }
                 } else {
-                    LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                    LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 480.dp)) {
                         items(results) { entry ->
                             val bookName = bibleData.manifest.bookName(entry.book) ?: entry.book
                             val reference = "$bookName ${entry.chapter}:${entry.verse}"
@@ -205,7 +183,7 @@ fun SearchDialog(
                     }
                 }
             } else {
-                Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.fillMaxWidth().heightIn(min = 200.dp), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("Search the Bible", fontFamily = FontFamily.Serif, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.height(6.dp))

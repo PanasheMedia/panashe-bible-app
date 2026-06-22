@@ -5,7 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,8 +18,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.panashe.bible.ui.*
+import org.panashe.bible.ui.components.PanasheDialog
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsDialog(
     prefs: MutableReaderPreferences,
@@ -25,32 +27,19 @@ fun SettingsDialog(
 ) {
     val snapshot = prefs.snapshot()
 
-    ModalBottomSheet(
+    PanasheDialog(
         onDismissRequest = onDismissRequest,
-        containerColor = MaterialTheme.colorScheme.surface,
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        dragHandle = { BottomSheetDefaults.DragHandle() },
-        modifier = Modifier.fillMaxHeight(0.9f)
+        eyebrow = "Reading preferences",
+        title = "Reading settings"
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 24.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 25.dp)
+                .padding(bottom = 25.dp)
+                .verticalScroll(rememberScrollState())
         ) {
-            Text(
-                "Reading preferences",
-                color = MaterialTheme.colorScheme.secondary,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 1.2.sp
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                "Reading settings",
-                color = Ink,
-                fontFamily = getSerifFontFamily(),
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(20.dp))
 
             // Verse Numbers Toggle
             SettingToggleRow(

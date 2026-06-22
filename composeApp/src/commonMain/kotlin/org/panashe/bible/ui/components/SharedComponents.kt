@@ -1,6 +1,14 @@
 package org.panashe.bible.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
@@ -13,18 +21,20 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.material3.MaterialTheme
 import org.panashe.bible.ui.Accent
 import org.panashe.bible.ui.Ink
 import org.panashe.bible.ui.Line
@@ -32,13 +42,17 @@ import org.panashe.bible.ui.Muted
 
 @Composable
 fun LoadingText(text: String) {
-    Text(text, color = Muted, fontSize = 14.sp, lineHeight = 24.sp)
+    val transition = rememberInfiniteTransition(label = "loading")
+    val anim by transition.animateFloat(
+        initialValue = 0.6f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(750), RepeatMode.Reverse),
+        label = "pulse"
+    )
+    Text(text, color = Muted, fontSize = 14.sp, lineHeight = 24.sp, modifier = Modifier.alpha(anim))
 }
 
 @Composable
 fun Hero(eyebrow: String?, title: String, intro: String) {
-    // Mirrors web .daily-hero (mobile): padding 24/0/20, h1 600 ~2.8rem/1 serif
-    // with letter-spacing -.045em; intro .95rem/1.65 muted, max-width 480.
     Column(
         modifier = Modifier.fillMaxWidth().padding(top = 28.dp, bottom = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -66,19 +80,17 @@ fun Hero(eyebrow: String?, title: String, intro: String) {
 fun SectionCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, Line), // var(--line) #dfddd6
+        border = BorderStroke(1.dp, Line),
         shape = RoundedCornerShape(4.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = modifier.fillMaxWidth().padding(bottom = 30.dp)
     ) {
-        // web .daily-card mobile padding ~24px
         Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 26.dp), content = content)
     }
 }
 
 @Composable
 fun Eyebrow(text: String) {
-    // web .eyebrow: accent, .65rem, 600, letter-spacing .14em, uppercase
     Text(
         text = text.uppercase(),
         color = Accent,
@@ -97,6 +109,34 @@ fun PrimaryAction(label: String, onClick: () -> Unit) {
         modifier = Modifier.height(44.dp)
     ) {
         Text(label, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+    }
+}
+
+@Composable
+fun ToastBar(message: String, visible: Boolean, modifier: Modifier = Modifier) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(animationSpec = tween(300)),
+        modifier = modifier
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 8.dp)
+        ) {
+            Surface(
+                color = Accent,
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text(
+                    message,
+                    color = androidx.compose.ui.graphics.Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                )
+            }
+        }
     }
 }
 

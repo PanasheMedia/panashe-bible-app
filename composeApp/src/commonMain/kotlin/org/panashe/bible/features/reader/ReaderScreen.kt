@@ -15,19 +15,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.BasicAlertDialog
-import androidx.compose.material3.Divider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -58,6 +56,8 @@ import kotlinx.coroutines.launch
 import org.panashe.bible.BibleData
 import org.panashe.bible.BibleVerse
 import org.panashe.bible.BookSummary
+import org.panashe.bible.features.audio.TtsEngine
+import org.panashe.bible.features.audio.createTtsEngine
 import org.panashe.bible.features.communion.CommunionView
 import org.panashe.bible.ui.Accent
 import org.panashe.bible.ui.Ink
@@ -65,8 +65,12 @@ import org.panashe.bible.ui.Line
 import org.panashe.bible.ui.Muted
 import org.panashe.bible.ui.Soft
 import org.panashe.bible.ui.SurfaceColor
+import org.panashe.bible.ui.components.CloseIcon
 import org.panashe.bible.ui.components.Eyebrow
+import org.panashe.bible.ui.components.Hero
 import org.panashe.bible.ui.components.LoadingText
+import org.panashe.bible.ui.components.PanasheDialog
+import org.panashe.bible.ui.components.PlayIcon
 import org.panashe.bible.ui.components.PrimaryAction
 import org.panashe.bible.ui.components.SecondaryAction
 import org.panashe.bible.ui.components.SectionCard
@@ -78,6 +82,14 @@ fun DailyReadingScreen(view: CommunionView?, loadError: String?, onBible: () -> 
     val reading = view?.reading
     val clipboardManager = LocalClipboardManager.current
 
+    // Daily hero — mirrors web .daily-hero
+    Hero(
+        eyebrow = reading?.dateLabel,
+        title = "Daily Reading",
+        intro = "A daily portion of Holy Scripture for reading, remembrance, and obedience before God."
+    )
+
+    // Single passage card — mirrors web .daily-card
     SectionCard {
         Eyebrow(reading?.dateLabel ?: "Today's Reading")
         Spacer(Modifier.height(10.dp))
@@ -111,15 +123,13 @@ fun DailyReadingScreen(view: CommunionView?, loadError: String?, onBible: () -> 
                 )
             }
         }
-    }
 
-    SectionCard {
-        Eyebrow(reading?.chapterTitle?.substringBeforeLast(" ") ?: "Scripture")
-        Spacer(Modifier.height(10.dp))
-        Text(reading?.chapterTitle ?: "Bible", color = Ink, fontFamily = FontFamily.Serif, fontSize = 30.sp)
-        Spacer(Modifier.height(10.dp))
-        Text(reading?.chapterIntro ?: "The chapter context will appear when bundled Scripture finishes loading.", color = Muted, lineHeight = 24.sp)
-        Spacer(Modifier.height(16.dp))
+        // Button divider — mirrors web .daily-actions top border
+        Spacer(Modifier.height(24.dp))
+        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Line))
+        Spacer(Modifier.height(18.dp))
+
+        // Action buttons
         FlowRow(horizontalArrangement = Arrangement.Center, verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
             PrimaryAction("Read full chapter") { onBible() }
             SecondaryAction("Copy passage") {
@@ -175,8 +185,13 @@ fun BibleScreen(
     var showBookPicker by remember { mutableStateOf(false) }
     var showChapterPicker by remember { mutableStateOf(false) }
     var showVersePicker by remember { mutableStateOf(false) }
+    var showTranslationInfo by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
     val listState = rememberLazyListState()
+
+    // TTS state
+    val ttsEngine = remember { createTtsEngine() }
+    var isAudioPlaying by remember { mutableStateOf(false) }
 
     val previousChapter = if (chapter > 1) chapter - 1 else null
     val nextChapter = if (bookSummary != null && chapter < bookSummary.chapters) chapter + 1 else null
@@ -198,7 +213,8 @@ fun BibleScreen(
         bookName = bookSummary?.name ?: "Bible",
         chapterNumber = chapter.toString(),
         onBookClick = { showBookPicker = true },
-        onChapterClick = { showChapterPicker = true }
+        onChapterClick = { showChapterPicker = true },
+        onTranslationClick = { showTranslationInfo = true }
     )
 
     SectionCard {
@@ -228,6 +244,43 @@ fun BibleScreen(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
         )
+
+        Spacer(Modifier.height(14.dp))
+
+        // Audio play button + verse count — mirrors web .chapter-actions
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "${verses.size} verses",
+                color = Muted,
+                fontSize = 11.sp,
+                letterSpacing = 1.1.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.width(12.dp))
+            IconButton(
+                onClick = {
+                    if (isAudioPlaying) {
+                        ttsEngine.stop()
+                        isAudioPlaying = false
+                    } else {
+                        val text = verses.joinToString(" ") { it.text }
+                        ttsEngine.speak(text)
+                        isAudioPlaying = true
+                    }
+                }
+            ) {
+                Icon(
+                    imageVector = PlayIcon,
+                    contentDescription = if (isAudioPlaying) "Stop audio" else "Listen to chapter",
+                    tint = Ink,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
 
         Spacer(Modifier.height(26.dp))
 
@@ -376,14 +429,29 @@ fun BibleScreen(
             onDismiss = { showChapterPicker = false }
         )
     }
+
+    // Translation info dialog
+    if (showTranslationInfo) {
+        TranslationInfoDialog(
+            onDismiss = { showTranslationInfo = false }
+        )
+    }
+
+    // Stop audio on chapter change
+    LaunchedEffect(bookSlug, chapter) {
+        ttsEngine.stop()
+        isAudioPlaying = false
+    }
 }
 
 @Composable
 fun ReaderToolbar(
     bookName: String,
     chapterNumber: String,
+    translationName: String = "KJVA",
     onBookClick: () -> Unit,
-    onChapterClick: () -> Unit
+    onChapterClick: () -> Unit,
+    onTranslationClick: () -> Unit = {}
 ) {
     Row(
         modifier = Modifier.fillMaxWidth()
@@ -395,6 +463,8 @@ fun ReaderToolbar(
         ToolbarSelector("Book", bookName, Modifier.weight(1f).clickable { onBookClick() })
         Box(modifier = Modifier.width(1.dp).height(44.dp).background(Line))
         ToolbarSelector("Chapter", chapterNumber, Modifier.weight(1f).clickable { onChapterClick() })
+        Box(modifier = Modifier.width(1.dp).height(44.dp).background(Line))
+        ToolbarSelector("Translation", translationName, Modifier.weight(0.8f).clickable { onTranslationClick() })
     }
 }
 
@@ -403,6 +473,30 @@ fun ToolbarSelector(label: String, value: String, modifier: Modifier) {
     Column(modifier = modifier.padding(14.dp)) {
         Eyebrow(label)
         Text(value, color = Ink, fontFamily = FontFamily.Serif, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+fun TranslationInfoCard(translationName: String = "KJVA", attribution: String = "") {
+    Column(modifier = Modifier.padding(25.dp)) {
+        Text(
+            translationName,
+            color = Ink,
+            fontFamily = FontFamily.Serif,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "King James Version with Apocrypha (KJVA) — the Authorized Version of 1611, including the Apocryphal books between the Old and New Testaments.",
+            color = Muted,
+            fontSize = 13.sp,
+            lineHeight = 22.sp
+        )
+        if (attribution.isNotBlank()) {
+            Spacer(Modifier.height(12.dp))
+            Text(attribution, color = Muted, fontSize = 11.sp, lineHeight = 16.sp)
+        }
     }
 }
 
@@ -445,68 +539,89 @@ fun BookPickerDialog(
 ) {
     val sections = books.groupBy { it.section }
 
-    AlertDialog(
+    PanasheDialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text("Select a book", fontFamily = FontFamily.Serif, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
-        },
-        text = {
-            LazyColumn {
-                sections.forEach { (section, sectionBooks) ->
-                    // Section heading
-                    item {
-                        Text(
-                            section.uppercase(),
-                            color = Accent,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            letterSpacing = 0.8.sp,
-                            modifier = Modifier.padding(top = if (section == "Old Testament") 0.dp else 16.dp, bottom = 8.dp)
-                        )
-                    }
-                    items(sectionBooks) { book ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth()
-                                .clickable { onSelect(book.slug) }
-                                .background(
-                                    if (book.slug == selectedSlug) Accent.copy(alpha = 0.08f) else Color.Transparent,
-                                    RoundedCornerShape(6.dp)
-                                )
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
+        eyebrow = "Navigate",
+        title = "Books"
+    ) {
+        LazyColumn(modifier = Modifier.heightIn(max = 600.dp)) {
+            sections.forEach { (section, sectionBooks) ->
+                item {
+                    Text(
+                        section.uppercase(),
+                        color = Accent,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 0.8.sp,
+                        modifier = Modifier.padding(start = 25.dp, top = if (section == "Old Testament") 18.dp else 16.dp, bottom = 8.dp, end = 25.dp)
+                    )
+                }
+                items(sectionBooks) { book ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth()
+                            .clickable { onSelect(book.slug) }
+                            .background(
+                                if (book.slug == selectedSlug) Accent.copy(alpha = 0.08f) else Color.Transparent,
+                                RoundedCornerShape(6.dp)
+                            )
+                            .padding(horizontal = 25.dp, vertical = 13.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                book.name,
+                                color = Ink,
+                                fontFamily = FontFamily.Serif,
+                                fontSize = 16.sp,
+                                fontWeight = if (book.slug == selectedSlug) FontWeight.SemiBold else FontWeight.Normal
+                            )
+                            if (book.description.isNotBlank()) {
                                 Text(
-                                    book.name,
-                                    color = Ink,
-                                    fontFamily = FontFamily.Serif,
-                                    fontSize = 16.sp,
-                                    fontWeight = if (book.slug == selectedSlug) FontWeight.SemiBold else FontWeight.Normal
+                                    "${book.description} \u00B7 ${book.chapters} chapters",
+                                    color = Muted,
+                                    fontSize = 11.sp,
+                                    lineHeight = 15.sp
                                 )
-                                if (book.description.isNotBlank()) {
-                                    Text(
-                                        "${book.description} \u00B7 ${book.chapters} chapters",
-                                        color = Muted,
-                                        fontSize = 11.sp,
-                                        lineHeight = 15.sp
-                                    )
-                                }
-                            }
-                            if (book.slug == selectedSlug) {
-                                Text("\u2713", color = Accent, fontSize = 16.sp)
                             }
                         }
+                        if (book.slug == selectedSlug) {
+                            Text("\u2713", color = Accent, fontSize = 16.sp)
+                        }
                     }
+                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).padding(start = 25.dp).background(Line.copy(alpha = 0.5f)))
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", color = Muted)
-            }
         }
-    )
+    }
+}
+
+// --- Translation Info Dialog ---
+
+@Composable
+fun TranslationInfoDialog(onDismiss: () -> Unit) {
+    PanasheDialog(
+        onDismissRequest = onDismiss,
+        eyebrow = "Translation",
+        title = "KJVA"
+    ) {
+        Column(modifier = Modifier.padding(25.dp)) {
+            Text(
+                "King James Version with Apocrypha",
+                color = Ink,
+                fontFamily = FontFamily.Serif,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "The Authorized Version of 1611 (KJV), including the Apocryphal books between the Old and New Testaments. The text has been updated for modern readability while preserving the dignity of the original translation.",
+                color = Muted,
+                fontSize = 13.sp,
+                lineHeight = 22.sp
+            )
+        }
+    }
 }
 
 // --- Chapter Picker Dialog ---
@@ -519,20 +634,16 @@ fun ChapterPickerDialog(
     onSelect: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
+    PanasheDialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text(
-                "$bookName — Select chapter",
-                fontFamily = FontFamily.Serif,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-        },
-        text = {
+        eyebrow = bookName,
+        title = "Select chapter"
+    ) {
+        Column(modifier = Modifier.padding(25.dp)) {
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.heightIn(max = 500.dp)
             ) {
                 for (ch in 1..chapterCount) {
                     Surface(
@@ -550,11 +661,6 @@ fun ChapterPickerDialog(
                     }
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", color = Muted)
-            }
         }
-    )
+    }
 }
