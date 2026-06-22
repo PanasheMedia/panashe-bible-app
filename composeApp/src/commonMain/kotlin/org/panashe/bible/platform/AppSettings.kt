@@ -18,7 +18,9 @@ data class PersistedAppState(
     val lastBookSlug: String = "john",
     val lastChapter: Int = 1,
     val offeredTodayIso: String? = null,
-    val clientId: String? = null
+    val clientId: String? = null,
+    /** null = follow system, "light" or "dark" = explicit user choice. */
+    val darkMode: String? = null
 )
 
 class AppSettings(private val filePath: String) {

@@ -1,11 +1,5 @@
 package org.panashe.bible.features.communion
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -18,11 +12,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -54,7 +46,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -190,7 +181,6 @@ fun CommunionScreen(
                 fontSize = 14.sp,
                 lineHeight = 24.sp
             )
-            ProcessNote()
             if (bibleData != null) {
                 OfferingForm(bibleData = bibleData, hasOffered = hasOffered, onSubmitted = { slug, ch, start, end ->
                     hasOffered = true
@@ -205,8 +195,8 @@ fun CommunionScreen(
     // Kept Seven card with Reddit-style thread layout
     SectionCard {
         SegmentedTabs(
-            first = "View Kept Seven",
-            second = "Previous Kept Seven",
+            first = "Today",
+            second = "Previous",
             firstSelected = selectedKeptTab == "today",
             onFirst = { selectedKeptTab = "today" },
             onSecond = { selectedKeptTab = "previous" }
@@ -227,13 +217,6 @@ fun CommunionScreen(
             fontFamily = FontFamily.Serif,
             fontSize = 20.sp,
             fontWeight = FontWeight.SemiBold
-        )
-        Spacer(Modifier.height(10.dp))
-        Text(
-            "Previous gathered Communions, preserved. Tap any entry to see the final Scripture shown without counts, names, or rankings.",
-            color = Muted,
-            fontSize = 14.sp,
-            lineHeight = 24.sp
         )
         Spacer(Modifier.height(14.dp))
         if (archiveEntries.isNotEmpty()) {
@@ -564,29 +547,10 @@ fun CascadingDropdown(
 
 @Composable
 fun CommunionHero() {
-    val infiniteTransition = rememberInfiniteTransition(label = "cross")
-    val crossAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.6f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "crossAlpha"
-    )
-
     Column(
         modifier = Modifier.fillMaxWidth().padding(top = 28.dp, bottom = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            "\u2726",
-            color = Accent,
-            fontSize = 22.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.alpha(crossAlpha)
-        )
-        Spacer(Modifier.height(10.dp))
         Text(
             "Daily Communion",
             color = Ink,
@@ -599,49 +563,13 @@ fun CommunionHero() {
         )
         Spacer(Modifier.height(14.dp))
         Text(
-            "Daily Communion has three parts: Today's Reading, Today's Offering, and Today's Communion. Readers offer Scripture references; matching references form a Common Witness, while quieter offerings remain part of the Hidden Witness.",
+            "Read today's passage, offer one reference, and see the seven that are kept.",
             color = Muted,
             fontSize = 15.sp,
             lineHeight = 25.sp,
             textAlign = TextAlign.Center,
             modifier = Modifier.widthIn(max = 560.dp)
         )
-        Spacer(Modifier.height(18.dp))
-        FlowRow(
-            horizontalArrangement = Arrangement.Center,
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            CommunionStep("1", "Read today's 3 verses")
-            CommunionStep("2", "Offer one reference")
-            CommunionStep("3", "View the kept seven")
-        }
-        Spacer(Modifier.height(12.dp))
-        Text(
-            "SCRIPTURE ONLY. NO PROFILES, COMMENTS, SCORES, OR RANKINGS.",
-            color = Accent,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center
-        )
-    }
-}
-
-@Composable
-fun CommunionStep(number: String, label: String) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.padding(horizontal = 8.dp)
-    ) {
-        Box(
-            modifier = Modifier.size(22.dp)
-                .background(Color(0x1FC64F35), RoundedCornerShape(50)),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(number, color = Accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-        }
-        Text(label, color = Muted, fontSize = 13.sp)
     }
 }
 
@@ -675,38 +603,6 @@ fun SegmentButton(label: String, selected: Boolean, onClick: () -> Unit, modifie
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center
         )
-    }
-}
-
-@Composable
-fun ProcessNote() {
-    Row(
-        modifier = Modifier.padding(vertical = 14.dp)
-            .background(
-                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f),
-                RoundedCornerShape(topEnd = 4.dp, bottomEnd = 4.dp)
-            )
-    ) {
-        Box(
-            modifier = Modifier.width(3.dp)
-                .fillMaxHeight()
-                .background(MaterialTheme.colorScheme.secondary)
-        )
-        Column(modifier = Modifier.padding(start = 14.dp, top = 14.dp, end = 16.dp, bottom = 14.dp)) {
-            Text(
-                "How Communion Is Gathered",
-                color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                "Each offering is a complete reference. The Common Witness helps form what is kept; the Hidden Witness keeps quieter Scripture from being forgotten.",
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                fontSize = 13.sp,
-                lineHeight = 22.sp
-            )
-        }
     }
 }
 

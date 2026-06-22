@@ -1,21 +1,27 @@
 package org.panashe.bible
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -29,6 +35,7 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -48,11 +55,13 @@ import org.panashe.bible.features.reader.SettingsDialog
 import org.panashe.bible.platform.AppSettings
 import org.panashe.bible.platform.PersistedReaderPrefs
 import org.panashe.bible.shared.SharedConstants
-import org.panashe.bible.ui.Ink
 import org.panashe.bible.ui.Line
 import org.panashe.bible.ui.Muted
 import org.panashe.bible.ui.PanasheTheme
-import org.panashe.bible.ui.Paper
+import org.panashe.bible.ui.Soft
+import org.panashe.bible.ui.components.MoonIcon
+import org.panashe.bible.ui.components.SearchIcon
+import org.panashe.bible.ui.components.SunIcon
 
 /** Anonymous, stable-per-install client id for the backend's once-per-day rule. */
 private fun randomClientId(): String =
@@ -75,6 +84,14 @@ fun PanasheApp(
 
     // Load persisted state
     val persistedState = remember { appSettings?.load() }
+    // Theme: null = follow system, "light"/"dark" = explicit user choice.
+    var darkModePref by remember { mutableStateOf(persistedState?.darkMode) }
+    val systemDark = isSystemInDarkTheme()
+    val darkTheme = when (darkModePref) {
+        "dark" -> true
+        "light" -> false
+        else -> systemDark
+    }
     val readerPrefs = remember {
         val prefs = persistedState?.readerPrefs
         MutableReaderPreferences().apply {
@@ -129,10 +146,24 @@ fun PanasheApp(
         }
     }
 
-    PanasheTheme {
-        Surface(modifier = Modifier.fillMaxSize(), color = Paper) {
+    PanasheTheme(darkTheme = darkTheme) {
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+          BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val wide = maxWidth > 700.dp
             Column(modifier = Modifier.fillMaxSize()) {
-                Header(route = route, onRouteChange = { route = it }, onSearch = { showSearch = true }, onSettings = { showSettings = true })
+                Header(
+                    route = route,
+                    onRouteChange = { route = it },
+                    wide = wide,
+                    isDark = darkTheme,
+                    onToggleTheme = {
+                        val next = if (darkTheme) "light" else "dark"
+                        darkModePref = next
+                        appSettings?.update { copy(darkMode = next) }
+                    },
+                    onSearch = { showSearch = true },
+                    onSettings = { showSettings = true }
+                )
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -178,8 +209,9 @@ fun PanasheApp(
                         Footer(onRouteChange = { route = it })
                     }
                 }
-                BottomTabs(route = route, onRouteChange = { route = it })
+                if (!wide) BottomTabs(route = route, onRouteChange = { route = it })
             }
+          }
 
             if (showSearch && bibleData != null) {
                 SearchDialog(
@@ -223,48 +255,84 @@ fun PanasheApp(
 }
 
 @Composable
-private fun Header(route: PanasheRoute, onRouteChange: (PanasheRoute) -> Unit, onSearch: () -> Unit = {}, onSettings: () -> Unit = {}) {
-    BoxWithConstraints(modifier = Modifier.fillMaxWidth().background(Paper).border(BorderStroke(0.5.dp, Line))) {
-        val showPrimaryTabs = maxWidth > 700.dp
+private fun Header(
+    route: PanasheRoute,
+    onRouteChange: (PanasheRoute) -> Unit,
+    wide: Boolean,
+    isDark: Boolean,
+    onToggleTheme: () -> Unit,
+    onSearch: () -> Unit = {},
+    onSettings: () -> Unit = {}
+) {
+    // Web .site-header: sticky bar with a single 1px bottom divider (not a 4-sided box).
+    Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = if (wide) 40.dp else 20.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = "The Bible",
-                color = Ink,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontFamily = FontFamily.Serif,
                 fontSize = 20.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f)
+                fontWeight = FontWeight.SemiBold
             )
-            if (showPrimaryTabs) {
-                Row(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
+            Spacer(Modifier.weight(1f))
+            if (wide) {
+                Row(horizontalArrangement = Arrangement.spacedBy(32.dp), verticalAlignment = Alignment.CenterVertically) {
                     PrimaryTab("Daily", route == PanasheRoute.Daily) { onRouteChange(PanasheRoute.Daily) }
                     PrimaryTab("Scripture", route == PanasheRoute.Bible) { onRouteChange(PanasheRoute.Bible) }
                     PrimaryTab("Communion", route == PanasheRoute.Communion) { onRouteChange(PanasheRoute.Communion) }
                 }
-            } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    HeaderAction("Aa", onClick = onSettings)
-                    HeaderAction("Search", onClick = onSearch)
+                Spacer(Modifier.weight(1f))
+            }
+            // Action icons — always reachable, at every width.
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onSettings) {
+                    Text("Aa", color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                }
+                IconButton(onClick = onToggleTheme) {
+                    Icon(
+                        imageVector = if (isDark) SunIcon else MoonIcon,
+                        contentDescription = if (isDark) "Switch to light mode" else "Switch to dark mode",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                IconButton(onClick = onSearch) {
+                    Icon(
+                        imageVector = SearchIcon,
+                        contentDescription = "Search the Bible",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
         }
+        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Line))
     }
 }
 
 @Composable
 private fun PrimaryTab(label: String, selected: Boolean, onClick: () -> Unit) {
-    TextButton(onClick = onClick, shape = RoundedCornerShape(0.dp)) {
-        Text(label, color = if (selected) Ink else Muted, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-    }
-}
-
-@Composable
-private fun HeaderAction(label: String, onClick: () -> Unit = {}) {
-    TextButton(onClick = onClick, shape = RoundedCornerShape(50)) {
-        Text(label, color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+    // Web .primary-tabs a: muted → ink when active, with a 2px ink underline.
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable(onClick = onClick).padding(vertical = 6.dp)
+    ) {
+        Text(
+            label,
+            color = if (selected) MaterialTheme.colorScheme.onSurface else Muted,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium
+        )
+        Spacer(Modifier.height(4.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(2.dp)
+                .background(if (selected) MaterialTheme.colorScheme.onSurface else androidx.compose.ui.graphics.Color.Transparent)
+        )
     }
 }
 
@@ -283,20 +351,35 @@ private fun Footer(onRouteChange: (PanasheRoute) -> Unit) {
 
 @Composable
 private fun BottomTabs(route: PanasheRoute, onRouteChange: (PanasheRoute) -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().background(Paper).border(BorderStroke(0.5.dp, Line)).padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        BottomTab("Daily", route == PanasheRoute.Daily) { onRouteChange(PanasheRoute.Daily) }
-        BottomTab("Scripture", route == PanasheRoute.Bible) { onRouteChange(PanasheRoute.Bible) }
-        BottomTab("Communion", route == PanasheRoute.Communion) { onRouteChange(PanasheRoute.Communion) }
+    // Web .mobile-tabs: single 1px top divider; active tab gets a soft background.
+    Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
+        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Line))
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp, horizontal = 6.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            BottomTab("Daily", route == PanasheRoute.Daily) { onRouteChange(PanasheRoute.Daily) }
+            BottomTab("Scripture", route == PanasheRoute.Bible) { onRouteChange(PanasheRoute.Bible) }
+            BottomTab("Communion", route == PanasheRoute.Communion) { onRouteChange(PanasheRoute.Communion) }
+        }
     }
 }
 
 @Composable
 private fun BottomTab(label: String, selected: Boolean, onClick: () -> Unit) {
-    TextButton(onClick = onClick, shape = RoundedCornerShape(0.dp)) {
-        Text(label, color = if (selected) Ink else Muted, fontSize = 13.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium)
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .clickable(onClick = onClick)
+            .background(if (selected) Soft else androidx.compose.ui.graphics.Color.Transparent)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        Text(
+            label,
+            color = if (selected) MaterialTheme.colorScheme.onSurface else Muted,
+            fontSize = 13.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
+        )
     }
 }
