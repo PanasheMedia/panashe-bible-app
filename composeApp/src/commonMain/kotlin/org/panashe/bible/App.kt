@@ -35,10 +35,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,7 +44,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import org.panashe.bible.features.communion.CommunionGenerator
 import org.panashe.bible.features.communion.CommunionRepository
 import org.panashe.bible.features.communion.CommunionScreen
 import org.panashe.bible.features.communion.CommunionView
@@ -123,8 +120,7 @@ fun PanasheApp(
         persistedState?.clientId?.takeIf { it.isNotBlank() }
             ?: randomClientId().also { id -> appSettings?.update { copy(clientId = id) } }
     }
-    val offerScope = rememberCoroutineScope()
-    // Offerings go to the shared backend (D1); reads stay on the local repository.
+    // Daily Communion reads come from the shared backend when available.
     val remoteRepo = remember(clientId, repository) {
         RemoteCommunionRepository(clientId = clientId, delegate = repository)
     }
@@ -160,6 +156,7 @@ fun PanasheApp(
             // Auto-hide chrome: collapse header + bottom tabs while scrolling down, reveal on scroll up.
             var chromeVisible by remember { mutableStateOf(true) }
             var lastScroll by remember { mutableStateOf(0) }
+            val readingRoute = route == PanasheRoute.Bible
             LaunchedEffect(scrollState) {
                 snapshotFlow { scrollState.value }.collect { value ->
                     chromeVisible = when {
@@ -181,6 +178,7 @@ fun PanasheApp(
                         route = route,
                         onRouteChange = { route = it },
                         wide = wide,
+                        showRouteTabs = !readingRoute,
                         isDark = darkTheme,
                         onToggleTheme = {
                             val next = if (darkTheme) "light" else "dark"
@@ -206,7 +204,13 @@ fun PanasheApp(
                             PanasheRoute.Daily -> DailyReadingScreen(
                                 view = view,
                                 loadError = loadError,
-                                onBible = { route = PanasheRoute.Bible }
+                                onBible = { slug, chapter ->
+                                    if (slug != null && chapter != null) {
+                                        bibleBookSlug = slug
+                                        bibleChapter = chapter
+                                    }
+                                    route = PanasheRoute.Bible
+                                }
                             )
                             PanasheRoute.Bible -> BibleScreen(
                                 view = view,
@@ -221,14 +225,6 @@ fun PanasheApp(
                             PanasheRoute.Communion -> CommunionScreen(
                                 view = view,
                                 bibleData = bibleData,
-                                appSettings = appSettings,
-                                onOffer = { slug, ch, start, end ->
-                                    offerScope.launch {
-                                        runCatching {
-                                            remoteRepo.submitOffering(CommunionGenerator.todayIso(), slug, ch, start, end)
-                                        }
-                                    }
-                                },
                                 onReadChapter = { slug, ch ->
                                     bibleBookSlug = slug
                                     bibleChapter = ch
@@ -245,7 +241,7 @@ fun PanasheApp(
                     }
                 }
                 if (!wide) AnimatedVisibility(
-                    visible = chromeVisible,
+                    visible = chromeVisible && !readingRoute,
                     enter = expandVertically(expandFrom = Alignment.Bottom) + fadeIn(),
                     exit = shrinkVertically(shrinkTowards = Alignment.Bottom) + fadeOut()
                 ) {
@@ -302,6 +298,7 @@ private fun Header(
     route: PanasheRoute,
     onRouteChange: (PanasheRoute) -> Unit,
     wide: Boolean,
+    showRouteTabs: Boolean,
     isDark: Boolean,
     onToggleTheme: () -> Unit,
     onSearch: () -> Unit = {},
@@ -321,7 +318,7 @@ private fun Header(
                 fontWeight = FontWeight.SemiBold
             )
             Spacer(Modifier.weight(1f))
-            if (wide) {
+            if (wide && showRouteTabs) {
                 Row(horizontalArrangement = Arrangement.spacedBy(32.dp), verticalAlignment = Alignment.CenterVertically) {
                     PrimaryTab("Daily", route == PanasheRoute.Daily) { onRouteChange(PanasheRoute.Daily) }
                     PrimaryTab("Scripture", route == PanasheRoute.Bible) { onRouteChange(PanasheRoute.Bible) }

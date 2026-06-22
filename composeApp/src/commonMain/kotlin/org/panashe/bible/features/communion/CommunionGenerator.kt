@@ -58,7 +58,7 @@ class CommunionGenerator(
         val gathered = theme.gathered
         val offerings = theme.offerings
             .distinctBy { SharedRules.referenceKey(it) }
-            .take(SharedConstants.KEPT_BENEATH_COUNT)
+            .take(SharedConstants.COMMUNION_THREAD_COUNT)
         return CommunionDayRefs(
             index = index,
             iso = isoForIndex(index),

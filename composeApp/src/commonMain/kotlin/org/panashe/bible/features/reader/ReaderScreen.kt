@@ -70,12 +70,13 @@ import org.panashe.bible.ui.components.PlayIcon
 import org.panashe.bible.ui.components.PrimaryAction
 import org.panashe.bible.ui.components.SecondaryAction
 import org.panashe.bible.ui.components.SectionCard
+import org.panashe.bible.shared.SharedRules
 import androidx.compose.ui.platform.LocalClipboardManager
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun DailyReadingScreen(view: CommunionView?, loadError: String?, onBible: () -> Unit) {
+fun DailyReadingScreen(view: CommunionView?, loadError: String?, onBible: (bookSlug: String?, chapter: Int?) -> Unit) {
     val reading = view?.reading
     val clipboardManager = LocalClipboardManager.current
 
@@ -128,15 +129,15 @@ fun DailyReadingScreen(view: CommunionView?, loadError: String?, onBible: () -> 
 
         // Action buttons
         FlowRow(horizontalArrangement = Arrangement.Center, verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            PrimaryAction("Read full chapter") { onBible() }
-            SecondaryAction("Copy passage") {
+            PrimaryAction("Read The Passage") {
+                onBible(reading?.reference?.book, reading?.reference?.chapter)
+            }
+            SecondaryAction("Share Passage") {
                 if (reading != null) {
-                    val passageText = reading.verses.joinToString(" ") { it.text }
-                    val fullText = "${reading.display}\n$passageText"
-                    clipboardManager.setText(AnnotatedString(fullText))
+                    clipboardManager.setText(AnnotatedString("https://panashe.org${SharedRules.versePath(reading.reference)}"))
                 }
             }
-            SecondaryAction("Browse the Bible", onBible)
+            SecondaryAction("Browse the Bible") { onBible(null, null) }
         }
     }
 }
@@ -206,14 +207,6 @@ fun BibleScreen(
     val previousChapterForNav = if (previousChapter == null && previousBookSlug != null) {
         books.firstOrNull { it.slug == previousBookSlug }?.chapters ?: 1
     } else null
-
-    ReaderToolbar(
-        bookName = bookSummary?.name ?: "Bible",
-        chapterNumber = chapter.toString(),
-        onBookClick = { showBookPicker = true },
-        onChapterClick = { showChapterPicker = true },
-        onTranslationClick = { showTranslationInfo = true }
-    )
 
     SectionCard(entranceDelayMillis = 80) {
         // Section eyebrow (Old/New Testament)
@@ -499,38 +492,6 @@ private fun buildAnnotatedVerse(
         color = ink
     )) {
         append(verse.text)
-    }
-}
-
-@Composable
-fun ReaderToolbar(
-    bookName: String,
-    chapterNumber: String,
-    translationName: String = "KJVA",
-    onBookClick: () -> Unit,
-    onChapterClick: () -> Unit,
-    onTranslationClick: () -> Unit = {}
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outline))
-            .padding(horizontal = 1.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        ToolbarSelector("Book", bookName, Modifier.weight(1f).clickable { onBookClick() })
-        Box(modifier = Modifier.width(1.dp).height(44.dp).background(MaterialTheme.colorScheme.outline))
-        ToolbarSelector("Chapter", chapterNumber, Modifier.weight(1f).clickable { onChapterClick() })
-        Box(modifier = Modifier.width(1.dp).height(44.dp).background(MaterialTheme.colorScheme.outline))
-        ToolbarSelector("Translation", translationName, Modifier.weight(0.8f).clickable { onTranslationClick() })
-    }
-}
-
-@Composable
-fun ToolbarSelector(label: String, value: String, modifier: Modifier) {
-    Column(modifier = modifier.padding(14.dp)) {
-        Eyebrow(label)
-        Text(value, color = MaterialTheme.colorScheme.onSurface, fontFamily = FontFamily.Serif, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 

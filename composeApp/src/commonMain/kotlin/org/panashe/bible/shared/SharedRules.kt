@@ -20,7 +20,11 @@ object SharedConstants {
     const val COMMUNION_TIMEZONE = "UTC"
     const val OFFERING_MIN_VERSES = 1
     const val OFFERING_MAX_VERSES = 3
-    const val KEPT_BENEATH_COUNT = 6
+    const val READING_LENGTH = 3
+    const val COMMON_WITNESS_COUNT = 3
+    const val HIDDEN_WITNESS_COUNT = 2
+    const val COMMUNION_THREAD_COUNT = 7
+    const val KEPT_BENEATH_COUNT = COMMUNION_THREAD_COUNT - 1
 
     const val ROUTE_DAILY = "/"
     const val ROUTE_BIBLE = "/bible"

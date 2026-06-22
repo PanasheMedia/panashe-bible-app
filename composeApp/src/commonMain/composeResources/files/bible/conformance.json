@@ -32,7 +32,7 @@
   ],
   "communionSeedDate": [
     { "date": "2026-06-01", "gathered": { "slug": "john", "chapter": 1, "start": 1, "end": 3 } },
-    { "date": "2026-06-10", "gathered": { "slug": "hebrews", "chapter": 11, "start": 1, "end": 1 } },
-    { "date": "2026-06-21", "gathered": { "slug": "hebrews", "chapter": 4, "start": 12, "end": 12 } }
+    { "date": "2026-06-10", "gathered": { "slug": "mark", "chapter": 15, "start": 33, "end": 33 } },
+    { "date": "2026-06-21", "gathered": { "slug": "isaiah", "chapter": 55, "start": 6, "end": 6 } }
   ]
 }

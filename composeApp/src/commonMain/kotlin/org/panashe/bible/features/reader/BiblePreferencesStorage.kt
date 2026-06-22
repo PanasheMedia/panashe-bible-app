@@ -16,7 +16,7 @@ data class ReaderPreferences(
     val fontFamily: FontFamily = FontFamily.Serif,
     val fontLabel: String = "Source Serif",
     val textSizePercent: Float = 100f,
-    val showVerseNumbers: Boolean = true,
+    val showVerseNumbers: Boolean = false,
     val lineByLine: Boolean = false,
     val audioSpeed: Float = 1f,
     val audioVoiceIndex: Int = 0
@@ -33,7 +33,7 @@ fun rememberReaderPreferences(): ReaderPreferences {
     var fontFamily by remember { mutableStateOf(FontFamily.Serif) }
     var fontLabel by remember { mutableStateOf("Source Serif") }
     var textSizePercent by remember { mutableFloatStateOf(100f) }
-    var showVerseNumbers by remember { mutableStateOf(true) }
+    var showVerseNumbers by remember { mutableStateOf(false) }
     var lineByLine by remember { mutableStateOf(false) }
 
     return ReaderPreferences(

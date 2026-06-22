@@ -75,7 +75,7 @@ private val MONTHS = listOf(
 
 val aboutParagraphs = listOf(
     "Panashe speaks of the presence of God. The project is shaped to help readers dwell with Scripture, not rush past it.",
-    "Daily Communion has three surfaces: Today's Reading, Today's Offering, and Today's Communion.",
+    "Daily Communion has two public surfaces: Today's Reading and Today's Communion.",
     "Readers offer complete Scripture references that connect with the day's reading. Those verses gather into the day's Communion.",
     "Today's Communion shows the verses interacting today, gathered around the Word — without names, counts, comments, or rankings."
 )

@@ -97,6 +97,13 @@ class BibleData(
             .joinToString(" ") { it.text }
     }
 
+    suspend fun passageTextWithVerseNumbers(reference: ScriptureReference): String {
+        val loaded = book(reference.book)
+        val chapter = loaded.chapter(reference.chapter) ?: return ""
+        return chapter.verseRange(reference.startVerse, reference.endVerse)
+            .joinToString(" ") { "${it.number} ${it.text}" }
+    }
+
     fun displayReference(reference: ScriptureReference): String =
         SharedRules.formatReference(reference, manifest.bookName(reference.book))
 

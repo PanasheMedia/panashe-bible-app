@@ -7,6 +7,8 @@ import org.panashe.bible.network.CommunionResponse
 import org.panashe.bible.network.OfferRequest
 import org.panashe.bible.network.WireRef
 import org.panashe.bible.shared.ScriptureReference
+import org.panashe.bible.shared.SharedConstants
+import org.panashe.bible.shared.SharedRules
 
 /**
  * Communion source backed by the shared API (Cloudflare Worker + D1).
@@ -55,14 +57,17 @@ class RemoteCommunionRepository(
     }
 
     private suspend fun buildViewFromApi(data: BibleData, response: CommunionResponse): CommunionView {
-        suspend fun entry(wire: WireRef): CommunionEntry {
-            val reference = wire.toReference()
+        suspend fun entryFromReference(reference: ScriptureReference): CommunionEntry {
             return CommunionEntry(
                 reference = reference,
                 display = data.displayReference(reference),
                 preview = data.passageText(reference),
                 state = "",
             )
+        }
+
+        suspend fun entryFromWire(wire: WireRef): CommunionEntry {
+            return entryFromReference(wire.toReference())
         }
 
         val readingRef = response.reading.toReference()
@@ -79,8 +84,13 @@ class RemoteCommunionRepository(
         )
 
         // The Communion thread: the verses interacting today, most-offered first.
-        val thread = response.communion.map { entry(it) }
-        val gathered = thread.firstOrNull() ?: entry(response.reading)
+        val seedRefs = CommunionGenerator(data.manifest, data.seed).communionForDate(response.date).offerings
+        val liveRefs = response.communion.map { it.toReference() }
+        val threadRefs = (liveRefs + seedRefs)
+            .distinctBy { SharedRules.referenceKey(it) }
+            .take(SharedConstants.COMMUNION_THREAD_COUNT)
+        val thread = threadRefs.map { entryFromReference(it) }
+        val gathered = thread.firstOrNull() ?: entryFromWire(response.reading)
         return CommunionView(
             reading = reading,
             kept = KeptCommunion(
