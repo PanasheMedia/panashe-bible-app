@@ -31,6 +31,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -48,6 +49,7 @@ fun PanasheDialog(
     eyebrow: String? = null,
     title: String,
     modifier: Modifier = Modifier,
+    centerHeader: Boolean = false,
     content: @Composable () -> Unit
 ) {
     var visible by remember { mutableStateOf(false) }
@@ -96,7 +98,8 @@ fun PanasheDialog(
                 DialogHeader(
                     eyebrow = eyebrow,
                     title = title,
-                    onDismiss = onDismissRequest
+                    onDismiss = onDismissRequest,
+                    centerHeader = centerHeader
                 )
                 content()
             }
@@ -108,7 +111,8 @@ fun PanasheDialog(
 fun DialogHeader(
     eyebrow: String?,
     title: String,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    centerHeader: Boolean = false
 ) {
     Column(
         modifier = Modifier.fillMaxWidth()
@@ -116,16 +120,22 @@ fun DialogHeader(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 25.dp, end = 8.dp, top = 25.dp, bottom = 25.dp)
+                .padding(start = if (centerHeader) 0.dp else 25.dp, end = if (centerHeader) 0.dp else 8.dp, top = 25.dp, bottom = 25.dp)
         ) {
-            Column(modifier = Modifier.align(Alignment.CenterStart)) {
+            Column(
+                modifier = Modifier
+                    .align(if (centerHeader) Alignment.Center else Alignment.CenterStart)
+                    .then(if (centerHeader) Modifier.fillMaxWidth().padding(horizontal = 48.dp) else Modifier),
+                horizontalAlignment = if (centerHeader) Alignment.CenterHorizontally else Alignment.Start
+            ) {
                 if (eyebrow != null) {
                     Text(
                         text = eyebrow,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 0.8.sp
+                        letterSpacing = 0.8.sp,
+                        textAlign = if (centerHeader) TextAlign.Center else TextAlign.Start
                     )
                     Spacer(Modifier.height(4.dp))
                 }
@@ -134,12 +144,13 @@ fun DialogHeader(
                     color = MaterialTheme.colorScheme.onSurface,
                     fontFamily = FontFamily.Serif,
                     fontSize = 25.sp,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = if (centerHeader) TextAlign.Center else TextAlign.Start
                 )
             }
             IconButton(
                 onClick = onDismiss,
-                modifier = Modifier.align(Alignment.CenterEnd)
+                modifier = Modifier.align(Alignment.CenterEnd).then(if (centerHeader) Modifier.padding(end = 8.dp) else Modifier)
             ) {
                 Icon(
                     imageVector = CloseIcon,

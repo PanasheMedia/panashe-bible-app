@@ -122,15 +122,6 @@ fun CommunionScreen(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
         )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "The Scripture readers are bringing today, gathered around the Word.",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 13.sp,
-            lineHeight = 21.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
-        )
         Spacer(Modifier.height(22.dp))
         if (kept == null) {
             LoadingText("Gathering today's Communion...")
@@ -220,7 +211,8 @@ fun ArchiveDetailDialog(detail: ArchiveDetail, onReadChapter: (String, Int) -> U
     PanasheDialog(
         onDismissRequest = onDismiss,
         eyebrow = "Past Communion",
-        title = detail.dateLabel
+        title = detail.dateLabel,
+        centerHeader = true
     ) {
         LazyColumn(modifier = Modifier.padding(25.dp)) {
             // The day's gathered verses (the reading itself is shown on the Daily screen).
