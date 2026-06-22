@@ -70,3 +70,17 @@ val CloseIcon: ImageVector by lazy {
 val PlayIcon: ImageVector by lazy {
     filledIcon("Play", "M7 4 V20 L20 12 Z")
 }
+
+// Copy / duplicate (two overlapping sheets).
+val CopyIcon: ImageVector by lazy {
+    strokeIcon(
+        "Copy",
+        "M9 9 H19 A1 1 0 0 1 20 10 V20 A1 1 0 0 1 19 21 H9 A1 1 0 0 1 8 20 V10 A1 1 0 0 1 9 9 Z " +
+            "M5 15 A1 1 0 0 1 4 14 V4 A1 1 0 0 1 5 3 H15 A1 1 0 0 1 16 4"
+    )
+}
+
+// Checkmark — copy confirmation.
+val CheckIcon: ImageVector by lazy {
+    strokeIcon("Check", "M5 13 L9 17 L19 6")
+}

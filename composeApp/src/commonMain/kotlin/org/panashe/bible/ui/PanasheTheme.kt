@@ -2,6 +2,8 @@ package org.panashe.bible.ui
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
@@ -66,12 +68,24 @@ fun PanasheTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composabl
     val soft = if (darkTheme) SoftDark else Soft
     val surface = if (darkTheme) SurfaceColorDark else SurfaceColor
 
+    val base = if (darkTheme) darkColorScheme() else lightColorScheme()
     MaterialTheme(
-        colorScheme = MaterialTheme.colorScheme.copy(
+        // Web token mapping: --background → background (paper), --surface → surface (white card),
+        // --ink → onSurface/onBackground, --muted → onSurfaceVariant, --line → outline,
+        // --soft → surfaceVariant, --accent → secondary. One source of truth for both modes.
+        colorScheme = base.copy(
             primary = ink,
+            onPrimary = surface,
             secondary = accent,
-            surface = paper,
-            onSurface = ink
+            onSecondary = surface,
+            background = paper,
+            onBackground = ink,
+            surface = surface,
+            onSurface = ink,
+            surfaceVariant = soft,
+            onSurfaceVariant = muted,
+            outline = line,
+            outlineVariant = line
         ),
         typography = MaterialTheme.typography.copy(
             displayLarge = MaterialTheme.typography.displayLarge.copy(fontFamily = serif),

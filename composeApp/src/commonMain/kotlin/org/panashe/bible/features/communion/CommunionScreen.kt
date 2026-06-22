@@ -26,7 +26,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -37,33 +36,24 @@ import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.panashe.bible.BibleData
-import org.panashe.bible.CommunionSeed
 import org.panashe.bible.formatDate
-import org.panashe.bible.shared.SharedConstants
-import org.panashe.bible.ui.Accent
-import org.panashe.bible.ui.Ink
-import org.panashe.bible.ui.Line
-import org.panashe.bible.ui.Muted
-import org.panashe.bible.ui.Soft
-import org.panashe.bible.ui.SurfaceColor
 import org.panashe.bible.ui.components.Eyebrow
 import org.panashe.bible.ui.components.LoadingText
 import org.panashe.bible.ui.components.PanasheDialog
@@ -72,7 +62,7 @@ import org.panashe.bible.ui.components.SectionCard
 import org.panashe.bible.ui.components.StaggeredEntrance
 import org.panashe.bible.ui.components.ToastBar
 import org.panashe.bible.platform.AppSettings
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.delay
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -98,67 +88,78 @@ fun CommunionScreen(
     var showOfferToast by remember { mutableStateOf(false) }
 
     val reading = view?.reading
-    val kept = remember(bibleData, view?.kept) {
-        if (bibleData == null) return@remember view?.kept
-        val gen = CommunionGenerator(bibleData.manifest, bibleData.seed)
+    // One generator for all derived state; only depends on the bundled data.
+    val generator = remember(bibleData) {
+        bibleData?.let { CommunionGenerator(it.manifest, it.seed) }
+    }
+
+    // The kept Communion shows the previous day's gathered seven.
+    // Passage text is loaded in a coroutine (produceState), never blocking the composition thread.
+    val keptResult by produceState<KeptCommunion?>(initialValue = view?.kept, bibleData, view?.kept) {
+        val data = bibleData
+        val gen = generator
+        if (data == null || gen == null) {
+            value = view?.kept
+            return@produceState
+        }
         val iso = gen.isoForDate(CommunionGenerator.todayIso(), -1) ?: CommunionGenerator.todayIso()
         val day = gen.communionForDate(iso)
-        KeptCommunion(
+        value = KeptCommunion(
             date = formatDate(day.iso),
             gathered = CommunionEntry(
                 reference = day.gathered,
-                display = bibleData.displayReference(day.gathered),
-                preview = runBlocking { bibleData.passageText(day.gathered) },
+                display = data.displayReference(day.gathered),
+                preview = data.passageText(day.gathered),
                 state = "Gathered passage"
             ),
             beneath = day.offerings.map { ref ->
                 CommunionEntry(
                     reference = ref,
-                    display = bibleData.displayReference(ref),
-                    preview = runBlocking { bibleData.passageText(ref) },
+                    display = data.displayReference(ref),
+                    preview = data.passageText(ref),
                     state = "Kept beneath"
                 )
             }
         )
     }
+    val kept = keptResult
 
-    // Generate archive entries (last 7 days)
+    // Archive: the last seven days of gathered Communions.
     val archiveEntries = remember(bibleData) {
-        if (bibleData == null) return@remember emptyList()
-        val gen = CommunionGenerator(bibleData.manifest, bibleData.seed)
+        val data = bibleData ?: return@remember emptyList()
+        val gen = generator!!
         val today = CommunionGenerator.todayIso()
         (1..7).mapNotNull { daysAgo ->
             val iso = gen.isoForDate(today, -daysAgo) ?: return@mapNotNull null
             val day = gen.communionForDate(iso)
-            val bookName = bibleData.manifest.bookName(day.gathered.book) ?: day.gathered.book
             ArchiveDay(
                 iso = iso,
                 dateLabel = formatDate(iso),
-                reference = "$bookName ${day.gathered.chapter}:${day.gathered.startVerse}-${day.gathered.endVerse}",
+                reference = data.displayReference(day.gathered),
                 offerings = day.offerings
             )
         }
     }
 
-    // Load archive detail
-    val archiveDetail = remember(selectedArchiveIso, bibleData) {
-        if (selectedArchiveIso == null || bibleData == null) return@remember null
-        val gen = CommunionGenerator(bibleData.manifest, bibleData.seed)
-        val day = gen.communionForDate(selectedArchiveIso!!)
-        val bookName = bibleData.manifest.bookName(day.gathered.book) ?: day.gathered.book
-        val gatheredText = runBlocking { bibleData.passageText(day.gathered) }
-        val offeringDetails = day.offerings.map { ref ->
-            val name = bibleData.manifest.bookName(ref.book) ?: ref.book
-            val text = runBlocking { bibleData.passageText(ref) }
-            ArchiveDetailEntry("$name ${ref.chapter}:${ref.startVerse}-${ref.endVerse}", text)
+    val archiveDetailResult by produceState<ArchiveDetail?>(initialValue = null, selectedArchiveIso, bibleData) {
+        val data = bibleData
+        val iso = selectedArchiveIso
+        val gen = generator
+        if (data == null || iso == null || gen == null) {
+            value = null
+            return@produceState
         }
-        ArchiveDetail(
-            dateLabel = formatDate(selectedArchiveIso!!),
-            gatheredRef = "$bookName ${day.gathered.chapter}:${day.gathered.startVerse}-${day.gathered.endVerse}",
-            gatheredText = gatheredText,
-            offerings = offeringDetails
+        val day = gen.communionForDate(iso)
+        value = ArchiveDetail(
+            dateLabel = formatDate(iso),
+            gatheredRef = data.displayReference(day.gathered),
+            gatheredText = data.passageText(day.gathered),
+            offerings = day.offerings.map { ref ->
+                ArchiveDetailEntry(data.displayReference(ref), data.passageText(ref))
+            }
         )
     }
+    val archiveDetail = archiveDetailResult
 
     CommunionHero()
 
@@ -166,18 +167,11 @@ fun CommunionScreen(
     TopCard {
         Eyebrow(reading?.dateLabel ?: "Today")
         Spacer(Modifier.height(6.dp))
-        Text(
-            "Offer Scripture for Today",
-            color = Ink,
-            fontFamily = FontFamily.Serif,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.SemiBold,
-            lineHeight = 28.sp
-        )
+        CardHeading("Offer Scripture for Today")
         Spacer(Modifier.height(10.dp))
         Text(
             "Communion receives one complete reference from you and gathers the latest kept seven here.",
-            color = Muted,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 14.sp,
             lineHeight = 24.sp
         )
@@ -187,15 +181,9 @@ fun CommunionScreen(
         }
         if (showOfferForm && bibleData != null) {
             Spacer(Modifier.height(22.dp))
-            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Line))
+            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outline))
             Spacer(Modifier.height(20.dp))
-            Text(
-                "Offer One Reference",
-                color = Ink,
-                fontFamily = FontFamily.Serif,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.SemiBold
-            )
+            CardHeading("Offer One Reference")
             Spacer(Modifier.height(10.dp))
             OfferingForm(bibleData = bibleData, hasOffered = hasOffered, onSubmitted = { slug, ch, start, end ->
                 hasOffered = true
@@ -216,13 +204,7 @@ fun CommunionScreen(
 
     // Archive card with responsive grid layout
     SectionCard {
-        Text(
-            "Archive",
-            color = Ink,
-            fontFamily = FontFamily.Serif,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.SemiBold
-        )
+        CardHeading("Archive")
         Spacer(Modifier.height(14.dp))
         if (archiveEntries.isNotEmpty() || kept != null) {
             FlowRow(
@@ -271,11 +253,24 @@ fun CommunionScreen(
     // Offering submission toast
     if (showOfferToast) {
         LaunchedEffect(Unit) {
-            kotlinx.coroutines.delay(3000)
+            delay(3000)
             showOfferToast = false
         }
         ToastBar("Your offering has been received for today.", visible = showOfferToast)
     }
+}
+
+/** Serif section heading shared across the Communion cards (web .daily-card h2 / .communion-section-title). */
+@Composable
+private fun CardHeading(text: String) {
+    Text(
+        text,
+        color = MaterialTheme.colorScheme.onSurface,
+        fontFamily = FontFamily.Serif,
+        fontSize = 20.sp,
+        fontWeight = FontWeight.SemiBold,
+        lineHeight = 28.sp
+    )
 }
 
 // --- Archive Detail Dialog ---
@@ -290,27 +285,21 @@ fun ArchiveDetailDialog(detail: ArchiveDetail, onDismiss: () -> Unit) {
         LazyColumn(modifier = Modifier.padding(25.dp)) {
             // Gathered passage reference
             item {
-                Text(
-                    detail.gatheredRef,
-                    color = Ink,
-                    fontFamily = FontFamily.Serif,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
+                CardHeading(detail.gatheredRef)
                 Spacer(Modifier.height(12.dp))
                 Text(
                     detail.gatheredText,
-                    color = Ink,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontFamily = FontFamily.Serif,
                     fontSize = 16.sp,
                     lineHeight = 26.sp
                 )
                 Spacer(Modifier.height(16.dp))
-                HorizontalDivider(color = Line)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                 Spacer(Modifier.height(12.dp))
                 Text(
                     "${detail.offerings.size} KEPT BENEATH",
-                    color = Muted,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.SemiBold,
                     letterSpacing = 0.8.sp
@@ -322,14 +311,14 @@ fun ArchiveDetailDialog(detail: ArchiveDetail, onDismiss: () -> Unit) {
                 Column(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
                     Text(
                         offering.reference,
-                        color = Accent,
+                        color = MaterialTheme.colorScheme.secondary,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
                         offering.text,
-                        color = Ink,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontFamily = FontFamily.Serif,
                         fontSize = 14.sp,
                         lineHeight = 22.sp
@@ -435,13 +424,13 @@ fun OfferingForm(bibleData: BibleData, hasOffered: Boolean, onSubmitted: (bookSl
         Spacer(Modifier.height(12.dp))
         Text(
             versePreview,
-            color = Ink,
+            color = MaterialTheme.colorScheme.onSurface,
             fontFamily = FontFamily.Serif,
             fontSize = 14.sp,
             lineHeight = 22.sp,
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Soft, RoundedCornerShape(6.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp))
                 .padding(12.dp)
         )
     }
@@ -449,7 +438,7 @@ fun OfferingForm(bibleData: BibleData, hasOffered: Boolean, onSubmitted: (bookSl
     Spacer(Modifier.height(14.dp))
     Text(
         "After you offer, this form closes for today. The kept Communion is assembled privately from all offerings.",
-        color = Muted,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         fontSize = 13.sp,
         lineHeight = 21.sp
     )
@@ -457,7 +446,7 @@ fun OfferingForm(bibleData: BibleData, hasOffered: Boolean, onSubmitted: (bookSl
     if (hasOffered) {
         Text(
             "Your offering has been received for today.",
-            color = Accent,
+            color = MaterialTheme.colorScheme.secondary,
             fontWeight = FontWeight.SemiBold,
             lineHeight = 22.sp
         )
@@ -535,7 +524,7 @@ fun CommunionHero() {
     ) {
         Text(
             "Daily Communion",
-            color = Ink,
+            color = MaterialTheme.colorScheme.onSurface,
             fontFamily = FontFamily.Serif,
             fontSize = 45.sp,
             lineHeight = 46.sp,
@@ -546,44 +535,11 @@ fun CommunionHero() {
         Spacer(Modifier.height(14.dp))
         Text(
             "Read today's passage, offer one reference, and see the seven that are kept.",
-            color = Muted,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 15.sp,
             lineHeight = 25.sp,
             textAlign = TextAlign.Center,
             modifier = Modifier.widthIn(max = 560.dp)
-        )
-    }
-}
-
-@Composable
-fun SegmentedTabs(first: String, second: String, firstSelected: Boolean, onFirst: () -> Unit, onSecond: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth()
-            .background(Soft, RoundedCornerShape(8.dp))
-            .padding(3.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        SegmentButton(first, firstSelected, onFirst, Modifier.weight(1f))
-        SegmentButton(second, !firstSelected, onSecond, Modifier.weight(1f))
-    }
-}
-
-@Composable
-fun SegmentButton(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier) {
-    TextButton(
-        onClick = onClick,
-        modifier = modifier,
-        shape = RoundedCornerShape(6.dp),
-        colors = ButtonDefaults.textButtonColors(
-            containerColor = if (selected) SurfaceColor else Color.Transparent
-        )
-    ) {
-        Text(
-            label,
-            color = if (selected) Ink else Muted,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center
         )
     }
 }
@@ -599,7 +555,7 @@ fun RedditThread(communion: KeptCommunion) {
         // Comments header
         Text(
             "${communion.beneath.size} KEPT BENEATH",
-            color = Muted,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 10.sp,
             fontWeight = FontWeight.SemiBold,
             letterSpacing = 0.8.sp,
@@ -621,11 +577,11 @@ fun RedditPost(communion: KeptCommunion) {
         // Left accent border (matches web .reddit-post border-left: 3px solid var(--accent))
         Box(
             modifier = Modifier.width(3.dp)
-                .background(Accent)
+                .background(MaterialTheme.colorScheme.secondary)
         )
         Column(
             modifier = Modifier
-                .background(Color(0x05000000)) // ink 2% tint
+                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.02f)) // ink 2% tint
                 .padding(22.dp)
                 .fillMaxWidth()
         ) {
@@ -633,14 +589,14 @@ fun RedditPost(communion: KeptCommunion) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
                     "GATHERED PASSAGE",
-                    color = Accent,
+                    color = MaterialTheme.colorScheme.secondary,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.SemiBold,
                     letterSpacing = 0.6.sp
                 )
                 Text(
                     communion.date,
-                    color = Muted,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 10.sp
                 )
             }
@@ -648,7 +604,7 @@ fun RedditPost(communion: KeptCommunion) {
             // Scripture text
             Text(
                 communion.gathered.display,
-                color = Ink,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontFamily = FontFamily.Serif,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -657,7 +613,7 @@ fun RedditPost(communion: KeptCommunion) {
             Spacer(Modifier.height(8.dp))
             Text(
                 communion.gathered.preview,
-                color = Ink,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontFamily = FontFamily.Serif,
                 fontSize = 15.sp,
                 lineHeight = 26.sp
@@ -681,7 +637,7 @@ fun RedditComment(entry: CommunionEntry) {
             modifier = Modifier
                 .width(2.dp)
                 .fillMaxHeight()
-                .background(if (isHovered) Accent else Line)
+                .background(if (isHovered) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outline)
         )
         // Horizontal connector branching to the reference
         Box(
@@ -689,14 +645,14 @@ fun RedditComment(entry: CommunionEntry) {
                 .width(16.dp)
                 .height(2.dp)
                 .padding(top = 18.dp)
-                .background(if (isHovered) Accent else Line)
+                .background(if (isHovered) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outline)
         )
         Column(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(start = 4.dp, top = 12.dp, bottom = 16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         entry.display,
-                        color = Ink,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontFamily = FontFamily.Serif,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold
@@ -704,7 +660,7 @@ fun RedditComment(entry: CommunionEntry) {
                     Spacer(Modifier.weight(1f))
                     Text(
                         "Read chapter",
-                        color = Accent,
+                        color = MaterialTheme.colorScheme.secondary,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -712,14 +668,14 @@ fun RedditComment(entry: CommunionEntry) {
                 Spacer(Modifier.height(8.dp))
                 Text(
                     entry.preview,
-                    color = Muted,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 13.sp,
                     lineHeight = 22.sp
                 )
             }
             Box(
                 modifier = Modifier.fillMaxWidth().height(1.dp)
-                    .background(Line.copy(alpha = 0.6f))
+                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
             )
         }
     }
@@ -732,13 +688,13 @@ fun TopCard(content: @Composable ColumnScope.() -> Unit) {
     StaggeredEntrance(delayMillis = 80) {
         Surface(
             color = MaterialTheme.colorScheme.surface,
-            border = BorderStroke(1.dp, Line),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
             shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
                 modifier = Modifier
-                    .border(2.dp, Accent, RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                    .border(2.dp, MaterialTheme.colorScheme.secondary, RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
                     .padding(horizontal = 24.dp, vertical = 26.dp),
                 content = content
             )
@@ -753,7 +709,7 @@ fun TabCard(content: @Composable ColumnScope.() -> Unit) {
     StaggeredEntrance(delayMillis = 140) {
         Surface(
             color = MaterialTheme.colorScheme.surface,
-            border = BorderStroke(1.dp, Line),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
             shape = RoundedCornerShape(bottomStart = 4.dp, bottomEnd = 4.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -765,30 +721,7 @@ fun TabCard(content: @Composable ColumnScope.() -> Unit) {
     }
 }
 
-// --- Archive grid (matches web .communion-archive-list) ---
-
-@Composable
-fun ArchiveGrid(communion: KeptCommunion) {
-    ArchiveItem(
-        date = communion.date,
-        reference = communion.gathered.display,
-        count = communion.beneath.size,
-        isToday = true,
-        modifier = Modifier.fillMaxWidth()
-    )
-}
-
-@Composable
-fun ArchiveItem(date: String, reference: String, count: Int, isToday: Boolean, modifier: Modifier = Modifier) {
-    ArchiveItem(
-        date = date,
-        reference = reference,
-        count = count,
-        isToday = isToday,
-        entranceDelayMillis = 0,
-        modifier = modifier
-    )
-}
+// --- Archive grid item (matches web .communion-archive-item) ---
 
 @Composable
 fun ArchiveItem(
@@ -796,7 +729,7 @@ fun ArchiveItem(
     reference: String,
     count: Int,
     isToday: Boolean,
-    entranceDelayMillis: Int,
+    entranceDelayMillis: Int = 0,
     modifier: Modifier = Modifier
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -804,27 +737,27 @@ fun ArchiveItem(
 
     StaggeredEntrance(delayMillis = entranceDelayMillis) {
         Surface(
-            color = if (isHovered) Color(0x08000000) else MaterialTheme.colorScheme.surface,
+            color = if (isHovered) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f) else MaterialTheme.colorScheme.surface,
             border = BorderStroke(
                 1.dp,
-                if (isToday || isHovered) Accent else Line
+                if (isToday || isHovered) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outline
             ),
             shape = RoundedCornerShape(4.dp),
             modifier = modifier.hoverable(interactionSource)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(date, color = Muted, fontSize = 10.sp, lineHeight = 14.sp)
+                    Text(date, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp, lineHeight = 14.sp)
                     if (isToday) {
                         Spacer(Modifier.width(6.dp))
                         Text(
                             "TODAY",
-                            color = androidx.compose.ui.graphics.Color.White,
+                            color = MaterialTheme.colorScheme.onSecondary,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.4.sp,
                             modifier = Modifier
-                                .background(Accent, RoundedCornerShape(3.dp))
+                                .background(MaterialTheme.colorScheme.secondary, RoundedCornerShape(3.dp))
                                 .padding(horizontal = 6.dp, vertical = 1.dp)
                         )
                     }
@@ -832,7 +765,7 @@ fun ArchiveItem(
                 Spacer(Modifier.height(4.dp))
                 Text(
                     reference,
-                    color = Ink,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontFamily = FontFamily.Serif,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold
@@ -840,7 +773,7 @@ fun ArchiveItem(
                 Spacer(Modifier.height(2.dp))
                 Text(
                     "$count kept beneath",
-                    color = Muted,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 10.sp,
                     lineHeight = 14.sp
                 )

@@ -33,9 +33,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import org.panashe.bible.ui.Ink
-import org.panashe.bible.ui.Line
-import org.panashe.bible.ui.Muted
 
 /**
  * Custom dialog matching the web <dialog> pattern:
@@ -125,7 +122,7 @@ fun DialogHeader(
                 if (eyebrow != null) {
                     Text(
                         text = eyebrow,
-                        color = Muted,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.SemiBold,
                         letterSpacing = 0.8.sp
@@ -134,7 +131,7 @@ fun DialogHeader(
                 }
                 Text(
                     text = title,
-                    color = Ink,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontFamily = FontFamily.Serif,
                     fontSize = 25.sp,
                     fontWeight = FontWeight.SemiBold
@@ -147,7 +144,7 @@ fun DialogHeader(
                 Icon(
                     imageVector = CloseIcon,
                     contentDescription = "Close",
-                    tint = Ink,
+                    tint = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(8.dp)
                 )
             }
@@ -156,7 +153,7 @@ fun DialogHeader(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(1.dp)
-                .background(Line)
+                .background(MaterialTheme.colorScheme.outline)
         )
     }
 }

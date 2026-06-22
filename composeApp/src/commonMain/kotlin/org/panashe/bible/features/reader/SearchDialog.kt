@@ -1,5 +1,7 @@
 package org.panashe.bible.features.reader
 
+import androidx.compose.material3.MaterialTheme
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,10 +24,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.panashe.bible.BibleData
 import org.panashe.bible.SearchIndexEntry
-import org.panashe.bible.ui.Accent
-import org.panashe.bible.ui.Ink
-import org.panashe.bible.ui.Line
-import org.panashe.bible.ui.Muted
 import org.panashe.bible.ui.components.PanasheDialog
 
 private data class ScoredResult(val entry: SearchIndexEntry, val score: Int)
@@ -43,7 +41,7 @@ private fun scoreResult(entry: SearchIndexEntry, query: String): Int {
     return score
 }
 
-private fun highlightText(text: String, query: String): AnnotatedString {
+private fun highlightText(text: String, query: String, highlight: Color): AnnotatedString {
     if (query.isBlank()) return AnnotatedString(text)
     val q = query.lowercase()
     return buildAnnotatedString {
@@ -58,7 +56,7 @@ private fun highlightText(text: String, query: String): AnnotatedString {
             if (index > lastIndex) {
                 append(text.substring(lastIndex, index))
             }
-            withStyle(SpanStyle(background = Accent.copy(alpha = 0.15f), fontWeight = FontWeight.SemiBold)) {
+            withStyle(SpanStyle(background = highlight, fontWeight = FontWeight.SemiBold)) {
                 append(text.substring(index, index + q.length))
             }
             lastIndex = index + q.length
@@ -144,7 +142,7 @@ fun SearchDialog(
                     Box(modifier = Modifier.fillMaxWidth().heightIn(min = 200.dp), contentAlignment = Alignment.Center) {
                         Text(
                             "No verses found for \"$searchQuery\"",
-                            color = Muted,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 14.sp
                         )
                     }
@@ -171,14 +169,14 @@ fun SearchDialog(
                                 )
                                 Spacer(Modifier.height(4.dp))
                                 Text(
-                                    highlightText(entry.text, searchQuery),
+                                    highlightText(entry.text, searchQuery, MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)),
                                     fontFamily = FontFamily.Serif,
                                     fontSize = 16.sp,
                                     lineHeight = 24.sp,
-                                    color = Ink
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                             }
-                            HorizontalDivider(color = Line)
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                         }
                     }
                 }
@@ -187,7 +185,7 @@ fun SearchDialog(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("Search the Bible", fontFamily = FontFamily.Serif, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.height(6.dp))
-                        Text("Type at least 3 characters to find verses.", color = Muted, fontSize = 14.sp)
+                        Text("Type at least 3 characters to find verses.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                     }
                 }
             }

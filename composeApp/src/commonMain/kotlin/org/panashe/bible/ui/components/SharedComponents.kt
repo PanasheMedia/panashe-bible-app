@@ -49,10 +49,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
-import org.panashe.bible.ui.Accent
-import org.panashe.bible.ui.Ink
-import org.panashe.bible.ui.Line
-import org.panashe.bible.ui.Muted
 
 @Composable
 fun LoadingText(text: String) {
@@ -62,7 +58,7 @@ fun LoadingText(text: String) {
         animationSpec = infiniteRepeatable(tween(750), RepeatMode.Reverse),
         label = "pulse"
     )
-    Text(text, color = Muted, fontSize = 14.sp, lineHeight = 24.sp, modifier = Modifier.alpha(anim))
+    Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp, lineHeight = 24.sp, modifier = Modifier.alpha(anim))
 }
 
 @Composable
@@ -77,7 +73,7 @@ fun Hero(eyebrow: String?, title: String, intro: String) {
         }
         Text(
             title,
-            color = Ink,
+            color = MaterialTheme.colorScheme.onSurface,
             fontFamily = FontFamily.Serif,
             fontSize = 45.sp,
             lineHeight = 46.sp,
@@ -86,7 +82,7 @@ fun Hero(eyebrow: String?, title: String, intro: String) {
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.height(14.dp))
-        Text(intro, color = Muted, fontSize = 15.sp, lineHeight = 25.sp, textAlign = TextAlign.Center, modifier = Modifier.widthIn(max = 480.dp))
+        Text(intro, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 15.sp, lineHeight = 25.sp, textAlign = TextAlign.Center, modifier = Modifier.widthIn(max = 480.dp))
     }
 }
 
@@ -99,7 +95,7 @@ fun SectionCard(
     StaggeredEntrance(delayMillis = entranceDelayMillis) {
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, Line),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
             shape = RoundedCornerShape(4.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             modifier = modifier.fillMaxWidth().padding(bottom = 30.dp)
@@ -135,7 +131,7 @@ fun StaggeredEntrance(delayMillis: Int = 0, content: @Composable () -> Unit) {
 fun Eyebrow(text: String) {
     Text(
         text = text.uppercase(),
-        color = Accent,
+        color = MaterialTheme.colorScheme.secondary,
         fontSize = 10.sp,
         fontWeight = FontWeight.SemiBold,
         letterSpacing = 1.4.sp
@@ -176,12 +172,12 @@ fun ToastBar(message: String, visible: Boolean, modifier: Modifier = Modifier) {
                 .padding(horizontal = 20.dp, vertical = 8.dp)
         ) {
             Surface(
-                color = Accent,
+                color = MaterialTheme.colorScheme.secondary,
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Text(
                     message,
-                    color = androidx.compose.ui.graphics.Color.White,
+                    color = MaterialTheme.colorScheme.onSecondary,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)

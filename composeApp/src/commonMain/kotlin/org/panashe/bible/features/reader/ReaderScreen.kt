@@ -61,12 +61,6 @@ import org.panashe.bible.BookSummary
 import org.panashe.bible.features.audio.TtsEngine
 import org.panashe.bible.features.audio.createTtsEngine
 import org.panashe.bible.features.communion.CommunionView
-import org.panashe.bible.ui.Accent
-import org.panashe.bible.ui.Ink
-import org.panashe.bible.ui.Line
-import org.panashe.bible.ui.Muted
-import org.panashe.bible.ui.Soft
-import org.panashe.bible.ui.SurfaceColor
 import org.panashe.bible.ui.components.CloseIcon
 import org.panashe.bible.ui.components.Eyebrow
 import org.panashe.bible.ui.components.Hero
@@ -98,7 +92,7 @@ fun DailyReadingScreen(view: CommunionView?, loadError: String?, onBible: () -> 
         Spacer(Modifier.height(10.dp))
         Text(
             reading?.display ?: "Loading...",
-            color = Ink,
+            color = MaterialTheme.colorScheme.onSurface,
             fontFamily = FontFamily.Serif,
             fontWeight = FontWeight.SemiBold,
             fontSize = 20.sp,
@@ -107,7 +101,7 @@ fun DailyReadingScreen(view: CommunionView?, loadError: String?, onBible: () -> 
         Spacer(Modifier.height(14.dp))
         Text(
             reading?.chapterIntro ?: "Loading the chapter context from bundled Scripture.",
-            color = Muted,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 14.sp,
             lineHeight = 24.sp
         )
@@ -118,7 +112,7 @@ fun DailyReadingScreen(view: CommunionView?, loadError: String?, onBible: () -> 
             else -> reading.verses.forEach { verse ->
                 Text(
                     text = verse.text,
-                    color = Ink,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontFamily = FontFamily.Serif,
                     fontSize = 18.sp,
                     lineHeight = 34.sp,
@@ -129,7 +123,7 @@ fun DailyReadingScreen(view: CommunionView?, loadError: String?, onBible: () -> 
 
         // Button divider — mirrors web .daily-actions top border
         Spacer(Modifier.height(24.dp))
-        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Line))
+        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outline))
         Spacer(Modifier.height(18.dp))
 
         // Action buttons
@@ -232,7 +226,7 @@ fun BibleScreen(
         // Chapter title
         Text(
             "${bookSummary?.name ?: ""} $chapter",
-            color = Ink,
+            color = MaterialTheme.colorScheme.onSurface,
             fontFamily = FontFamily.Serif,
             fontSize = 52.sp,
             lineHeight = 56.sp,
@@ -242,7 +236,7 @@ fun BibleScreen(
         Spacer(Modifier.height(10.dp))
         Text(
             "Chapter $chapter of ${bookSummary?.name ?: "Scripture"}",
-            color = Muted,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 13.sp,
             lineHeight = 22.sp,
             textAlign = TextAlign.Center,
@@ -259,7 +253,7 @@ fun BibleScreen(
         ) {
             Text(
                 "${verses.size} verses",
-                color = Muted,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 11.sp,
                 letterSpacing = 1.1.sp,
                 fontWeight = FontWeight.SemiBold
@@ -292,13 +286,13 @@ fun BibleScreen(
                     CircularProgressIndicator(
                         modifier = Modifier.size(16.dp),
                         strokeWidth = 2.dp,
-                        color = Ink
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 } else {
                     Icon(
                         imageVector = PlayIcon,
                         contentDescription = if (isAudioPlaying) "Stop audio" else "Listen to chapter",
-                        tint = Ink,
+                        tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -311,7 +305,7 @@ fun BibleScreen(
         if (verses.isNotEmpty()) {
             Text(
                 if (showVersePicker) "Hide verse picker" else "Jump to verse",
-                color = Accent,
+                color = MaterialTheme.colorScheme.secondary,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.fillMaxWidth()
@@ -326,7 +320,7 @@ fun BibleScreen(
                 ) {
                     verses.forEach { verse ->
                         Surface(
-                            color = Soft,
+                            color = MaterialTheme.colorScheme.surfaceVariant,
                             shape = RoundedCornerShape(4.dp),
                             modifier = Modifier.clickable {
                                 showVersePicker = false
@@ -338,7 +332,7 @@ fun BibleScreen(
                         ) {
                             Text(
                                 "${verse.number}",
-                                color = Ink,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
@@ -356,20 +350,22 @@ fun BibleScreen(
             else -> {
                 // Render verses with prefs applied
                 val snapshot = prefs.snapshot()
+                val accentColor = MaterialTheme.colorScheme.secondary
+                val inkColor = MaterialTheme.colorScheme.onSurface
                 if (snapshot.lineByLine) {
                     verses.forEach { verse ->
                         if (snapshot.showVerseNumbers) {
-                            val verseAnnotated = buildAnnotatedVerse(verse, snapshot)
+                            val verseAnnotated = buildAnnotatedVerse(verse, snapshot, accentColor, inkColor)
                             Text(
                                 text = verseAnnotated,
-                                color = Ink,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 lineHeight = snapshot.lineHeightSp.sp,
                                 modifier = Modifier.padding(bottom = 8.dp)
                             )
                         } else {
                             Text(
                                 text = verse.text,
-                                color = Ink,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontFamily = snapshot.fontFamily,
                                 fontSize = snapshot.baseFontSizeSp.sp,
                                 lineHeight = snapshot.lineHeightSp.sp,
@@ -382,12 +378,12 @@ fun BibleScreen(
                         text = buildAnnotatedString {
                             verses.forEachIndexed { index, verse ->
                                 if (snapshot.showVerseNumbers) {
-                                    append(buildAnnotatedVerse(verse, snapshot))
+                                    append(buildAnnotatedVerse(verse, snapshot, accentColor, inkColor))
                                 } else {
                                     withStyle(SpanStyle(
                                         fontFamily = snapshot.fontFamily,
                                         fontSize = snapshot.baseFontSizeSp.sp,
-                                        color = Ink
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )) {
                                         append(verse.text)
                                     }
@@ -395,7 +391,7 @@ fun BibleScreen(
                                 if (index != verses.lastIndex) append(" ")
                             }
                         },
-                        color = Ink,
+                        color = MaterialTheme.colorScheme.onSurface,
                         lineHeight = snapshot.lineHeightSp.sp,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
@@ -485,12 +481,14 @@ fun BibleScreen(
 
 private fun buildAnnotatedVerse(
     verse: BibleVerse,
-    snapshot: ReaderPreferences
+    snapshot: ReaderPreferences,
+    accent: Color,
+    ink: Color
 ): AnnotatedString = buildAnnotatedString {
     withStyle(SpanStyle(
         fontSize = (11f * snapshot.textSizeMultiplier).sp,
         fontWeight = FontWeight.SemiBold,
-        color = Accent,
+        color = accent,
         baselineShift = BaselineShift.Superscript
     )) {
         append("${verse.number} ")
@@ -498,7 +496,7 @@ private fun buildAnnotatedVerse(
     withStyle(SpanStyle(
         fontFamily = snapshot.fontFamily,
         fontSize = snapshot.baseFontSizeSp.sp,
-        color = Ink
+        color = ink
     )) {
         append(verse.text)
     }
@@ -515,15 +513,15 @@ fun ReaderToolbar(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth()
-            .background(Soft)
-            .border(BorderStroke(1.dp, Line))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outline))
             .padding(horizontal = 1.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         ToolbarSelector("Book", bookName, Modifier.weight(1f).clickable { onBookClick() })
-        Box(modifier = Modifier.width(1.dp).height(44.dp).background(Line))
+        Box(modifier = Modifier.width(1.dp).height(44.dp).background(MaterialTheme.colorScheme.outline))
         ToolbarSelector("Chapter", chapterNumber, Modifier.weight(1f).clickable { onChapterClick() })
-        Box(modifier = Modifier.width(1.dp).height(44.dp).background(Line))
+        Box(modifier = Modifier.width(1.dp).height(44.dp).background(MaterialTheme.colorScheme.outline))
         ToolbarSelector("Translation", translationName, Modifier.weight(0.8f).clickable { onTranslationClick() })
     }
 }
@@ -532,7 +530,7 @@ fun ReaderToolbar(
 fun ToolbarSelector(label: String, value: String, modifier: Modifier) {
     Column(modifier = modifier.padding(14.dp)) {
         Eyebrow(label)
-        Text(value, color = Ink, fontFamily = FontFamily.Serif, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        Text(value, color = MaterialTheme.colorScheme.onSurface, fontFamily = FontFamily.Serif, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -541,7 +539,7 @@ fun TranslationInfoCard(translationName: String = "KJVA", attribution: String = 
     Column(modifier = Modifier.padding(25.dp)) {
         Text(
             translationName,
-            color = Ink,
+            color = MaterialTheme.colorScheme.onSurface,
             fontFamily = FontFamily.Serif,
             fontSize = 20.sp,
             fontWeight = FontWeight.SemiBold
@@ -549,13 +547,13 @@ fun TranslationInfoCard(translationName: String = "KJVA", attribution: String = 
         Spacer(Modifier.height(12.dp))
         Text(
             "King James Version with Apocrypha (KJVA) — the Authorized Version of 1611, including the Apocryphal books between the Old and New Testaments.",
-            color = Muted,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 13.sp,
             lineHeight = 22.sp
         )
         if (attribution.isNotBlank()) {
             Spacer(Modifier.height(12.dp))
-            Text(attribution, color = Muted, fontSize = 11.sp, lineHeight = 16.sp)
+            Text(attribution, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, lineHeight = 16.sp)
         }
     }
 }
@@ -565,7 +563,7 @@ fun ChapterNav(previousLabel: String?, nextLabel: String?, onPrevious: () -> Uni
     Spacer(Modifier.height(40.dp))
     Row(
         modifier = Modifier.fillMaxWidth()
-            .border(BorderStroke(1.dp, Line), RoundedCornerShape(4.dp))
+            .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outline), RoundedCornerShape(4.dp))
             .padding(18.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -609,7 +607,7 @@ fun BookPickerDialog(
                 item {
                     Text(
                         section.uppercase(),
-                        color = Accent,
+                        color = MaterialTheme.colorScheme.secondary,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.SemiBold,
                         letterSpacing = 0.8.sp,
@@ -621,7 +619,7 @@ fun BookPickerDialog(
                         modifier = Modifier.fillMaxWidth()
                             .clickable { onSelect(book.slug) }
                             .background(
-                                if (book.slug == selectedSlug) Accent.copy(alpha = 0.08f) else Color.Transparent,
+                                if (book.slug == selectedSlug) MaterialTheme.colorScheme.secondary.copy(alpha = 0.08f) else Color.Transparent,
                                 RoundedCornerShape(6.dp)
                             )
                             .padding(horizontal = 25.dp, vertical = 13.dp),
@@ -631,7 +629,7 @@ fun BookPickerDialog(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 book.name,
-                                color = Ink,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontFamily = FontFamily.Serif,
                                 fontSize = 16.sp,
                                 fontWeight = if (book.slug == selectedSlug) FontWeight.SemiBold else FontWeight.Normal
@@ -639,17 +637,17 @@ fun BookPickerDialog(
                             if (book.description.isNotBlank()) {
                                 Text(
                                     "${book.description} \u00B7 ${book.chapters} chapters",
-                                    color = Muted,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 11.sp,
                                     lineHeight = 15.sp
                                 )
                             }
                         }
                         if (book.slug == selectedSlug) {
-                            Text("\u2713", color = Accent, fontSize = 16.sp)
+                            Text("\u2713", color = MaterialTheme.colorScheme.secondary, fontSize = 16.sp)
                         }
                     }
-                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).padding(start = 25.dp).background(Line.copy(alpha = 0.5f)))
+                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).padding(start = 25.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)))
                 }
             }
         }
@@ -668,7 +666,7 @@ fun TranslationInfoDialog(onDismiss: () -> Unit) {
         Column(modifier = Modifier.padding(25.dp)) {
             Text(
                 "King James Version with Apocrypha",
-                color = Ink,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontFamily = FontFamily.Serif,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.SemiBold
@@ -676,7 +674,7 @@ fun TranslationInfoDialog(onDismiss: () -> Unit) {
             Spacer(Modifier.height(12.dp))
             Text(
                 "The Authorized Version of 1611 (KJV), including the Apocryphal books between the Old and New Testaments. The text has been updated for modern readability while preserving the dignity of the original translation.",
-                color = Muted,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 13.sp,
                 lineHeight = 22.sp
             )
@@ -707,13 +705,13 @@ fun ChapterPickerDialog(
             ) {
                 for (ch in 1..chapterCount) {
                     Surface(
-                        color = if (ch == selectedChapter) Accent else Soft,
+                        color = if (ch == selectedChapter) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.surfaceVariant,
                         shape = RoundedCornerShape(6.dp),
                         modifier = Modifier.clickable { onSelect(ch) }
                     ) {
                         Text(
                             ch.toString(),
-                            color = if (ch == selectedChapter) SurfaceColor else Ink,
+                            color = if (ch == selectedChapter) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurface,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)

@@ -1,5 +1,10 @@
 package org.panashe.bible
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -32,6 +37,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,6 +52,7 @@ import org.panashe.bible.features.communion.CommunionScreen
 import org.panashe.bible.features.communion.CommunionView
 import org.panashe.bible.features.communion.RemoteCommunionRepository
 import org.panashe.bible.features.communion.StaticCommunionRepository
+import org.panashe.bible.features.pages.SupportSection
 import org.panashe.bible.features.pages.TextPage
 import org.panashe.bible.features.reader.BibleScreen
 import org.panashe.bible.features.reader.DailyReadingScreen
@@ -55,10 +62,7 @@ import org.panashe.bible.features.reader.SettingsDialog
 import org.panashe.bible.platform.AppSettings
 import org.panashe.bible.platform.PersistedReaderPrefs
 import org.panashe.bible.shared.SharedConstants
-import org.panashe.bible.ui.Line
-import org.panashe.bible.ui.Muted
 import org.panashe.bible.ui.PanasheTheme
-import org.panashe.bible.ui.Soft
 import org.panashe.bible.ui.components.MoonIcon
 import org.panashe.bible.ui.components.SearchIcon
 import org.panashe.bible.ui.components.SunIcon
@@ -149,27 +153,48 @@ fun PanasheApp(
     }
 
     PanasheTheme(darkTheme = darkTheme) {
-        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
           BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val wide = maxWidth > 700.dp
+            val scrollState = rememberScrollState()
+            // Auto-hide chrome: collapse header + bottom tabs while scrolling down, reveal on scroll up.
+            var chromeVisible by remember { mutableStateOf(true) }
+            var lastScroll by remember { mutableStateOf(0) }
+            LaunchedEffect(scrollState) {
+                snapshotFlow { scrollState.value }.collect { value ->
+                    chromeVisible = when {
+                        value <= 0 -> true
+                        value - lastScroll > 6 -> false
+                        lastScroll - value > 6 -> true
+                        else -> chromeVisible
+                    }
+                    lastScroll = value
+                }
+            }
             Column(modifier = Modifier.fillMaxSize()) {
-                Header(
-                    route = route,
-                    onRouteChange = { route = it },
-                    wide = wide,
-                    isDark = darkTheme,
-                    onToggleTheme = {
-                        val next = if (darkTheme) "light" else "dark"
-                        darkModePref = next
-                        appSettings?.update { copy(darkMode = next) }
-                    },
-                    onSearch = { showSearch = true },
-                    onSettings = { showSettings = true }
-                )
+                AnimatedVisibility(
+                    visible = chromeVisible,
+                    enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
+                    exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut()
+                ) {
+                    Header(
+                        route = route,
+                        onRouteChange = { route = it },
+                        wide = wide,
+                        isDark = darkTheme,
+                        onToggleTheme = {
+                            val next = if (darkTheme) "light" else "dark"
+                            darkModePref = next
+                            appSettings?.update { copy(darkMode = next) }
+                        },
+                        onSearch = { showSearch = true },
+                        onSettings = { showSettings = true }
+                    )
+                }
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .verticalScroll(rememberScrollState())
+                        .verticalScroll(scrollState)
                         .padding(horizontal = 20.dp),
                     contentAlignment = Alignment.TopCenter
                 ) {
@@ -205,13 +230,22 @@ fun PanasheApp(
                                     }
                                 }
                             )
-                            PanasheRoute.About -> TextPage("About", aboutParagraphs)
+                            PanasheRoute.About -> {
+                                TextPage("About", aboutParagraphs)
+                                SupportSection()
+                            }
                             PanasheRoute.Privacy -> TextPage("Privacy Policy", privacyParagraphs)
                         }
                         Footer(onRouteChange = { route = it })
                     }
                 }
-                if (!wide) BottomTabs(route = route, onRouteChange = { route = it })
+                if (!wide) AnimatedVisibility(
+                    visible = chromeVisible,
+                    enter = expandVertically(expandFrom = Alignment.Bottom) + fadeIn(),
+                    exit = shrinkVertically(shrinkTowards = Alignment.Bottom) + fadeOut()
+                ) {
+                    BottomTabs(route = route, onRouteChange = { route = it })
+                }
             }
           }
 
@@ -269,7 +303,7 @@ private fun Header(
     onSettings: () -> Unit = {}
 ) {
     // Web .site-header: sticky bar with a single 1px bottom divider (not a 4-sided box).
-    Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
+    Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = if (wide) 40.dp else 20.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -313,7 +347,7 @@ private fun Header(
                 }
             }
         }
-        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Line))
+        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outline))
     }
 }
 
@@ -326,7 +360,7 @@ private fun PrimaryTab(label: String, selected: Boolean, onClick: () -> Unit) {
     ) {
         Text(
             label,
-            color = if (selected) MaterialTheme.colorScheme.onSurface else Muted,
+            color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium
         )
@@ -356,8 +390,8 @@ private fun Footer(onRouteChange: (PanasheRoute) -> Unit) {
 @Composable
 private fun BottomTabs(route: PanasheRoute, onRouteChange: (PanasheRoute) -> Unit) {
     // Web .mobile-tabs: single 1px top divider; active tab gets a soft background.
-    Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
-        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Line))
+    Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)) {
+        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outline))
         Row(
             modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp, horizontal = 6.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
@@ -376,12 +410,12 @@ private fun BottomTab(label: String, selected: Boolean, onClick: () -> Unit) {
         modifier = Modifier
             .clip(RoundedCornerShape(6.dp))
             .clickable(onClick = onClick)
-            .background(if (selected) Soft else androidx.compose.ui.graphics.Color.Transparent)
+            .background(if (selected) MaterialTheme.colorScheme.surfaceVariant else androidx.compose.ui.graphics.Color.Transparent)
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
         Text(
             label,
-            color = if (selected) MaterialTheme.colorScheme.onSurface else Muted,
+            color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 13.sp,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
         )
